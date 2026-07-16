@@ -1,0 +1,320 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-accent-warm: var(--accent-warm);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+  --font-display: var(--font-space-grotesk);
+}
+
+:root {
+  color-scheme: dark;
+  --background: #0a0d09;
+  --foreground: #f3f6ec;
+  --card: #151b12;
+  --card-foreground: #f3f6ec;
+  --popover: #151b12;
+  --popover-foreground: #f3f6ec;
+  --primary: #d6ff4a;
+  --primary-foreground: #0a0d09;
+  --secondary: #1b2316;
+  --secondary-foreground: #f3f6ec;
+  --muted: #1b2316;
+  --muted-foreground: #9ba394;
+  --accent: #d6ff4a;
+  --accent-foreground: #0a0d09;
+  --accent-warm: #ff8a4c;
+  --destructive: #ff6b57;
+  --border: rgba(243, 246, 236, 0.1);
+  --input: rgba(243, 246, 236, 0.14);
+  --ring: #d6ff4a;
+  --radius: 1rem;
+}
+
+.light {
+  color-scheme: light;
+  --background: #f7f9f1;
+  --foreground: #161c10;
+  --card: #ffffff;
+  --card-foreground: #161c10;
+  --popover: #ffffff;
+  --popover-foreground: #161c10;
+  --primary: #517d00;
+  --primary-foreground: #fbffec;
+  --secondary: #ecf1de;
+  --secondary-foreground: #161c10;
+  --muted: #e8edda;
+  --muted-foreground: #5b6452;
+  --accent: #517d00;
+  --accent-foreground: #fbffec;
+  --accent-warm: #d95f1a;
+  --destructive: #d43d2a;
+  --border: rgba(22, 28, 16, 0.12);
+  --input: rgba(22, 28, 16, 0.16);
+  --ring: #517d00;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@utility animate-shimmer {
+  animation: shimmer 5s linear infinite;
+}
+
+/* Breathing glow for the primary CTA */
+@keyframes glow-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 12px 0 color-mix(in oklch, var(--accent) 25%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 26px 5px color-mix(in oklch, var(--accent) 45%, transparent);
+  }
+}
+
+@utility animate-glow-breathe {
+  animation: glow-breathe 2.6s ease-in-out infinite;
+}
+
+/* Very subtle idle glow pulse for card CTA buttons */
+@keyframes glow-pulse-subtle {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 10px 1px color-mix(in oklch, var(--accent) 28%, transparent);
+  }
+}
+
+@utility animate-glow-pulse-subtle {
+  animation: glow-pulse-subtle 3s ease-in-out infinite;
+}
+
+/* Slow pulsing dot for "Draft" status */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.75);
+  }
+}
+
+@utility animate-pulse-dot {
+  animation: pulse-dot 2.2s ease-in-out infinite;
+}
+
+/* Gentle back-and-forth rotation for the AI sparkle icon */
+@keyframes sparkle-sway {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+@utility animate-sparkle-sway {
+  animation: sparkle-sway 2.8s ease-in-out infinite;
+}
+
+/* Diagonal sheen that sweeps across product photos on hover */
+@utility sheen-sweep {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.14) 48%,
+      rgba(255, 255, 255, 0.05) 55%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.7s ease;
+    pointer-events: none;
+  }
+}
+
+.group:hover .sheen-sweep::after {
+  transform: translateX(120%);
+}
+
+/* Faint tech grid pattern background */
+@utility bg-tech-grid {
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--foreground) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      color-mix(in oklch, var(--foreground) 3%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 36px 36px;
+}
+
+/* Gradient border helper: border fades to transparent at corners */
+@utility card-gradient-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(
+        135deg,
+        color-mix(in oklch, var(--foreground) 14%, transparent),
+        transparent 40%,
+        transparent 60%,
+        color-mix(in oklch, var(--foreground) 10%, transparent)
+      )
+      border-box;
+}
+
+/* Chart dot entrance: pops in with slight overshoot, staggered via --dot-delay */
+@keyframes dot-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0) translateY(6px);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.35) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@utility animate-dot-pop {
+  animation: dot-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--dot-delay, 0s);
+}
+
+/* Gentle twinkle for AI-projected dots — feels "alive"/predictive */
+@keyframes dot-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@utility animate-dot-twinkle {
+  animation: dot-twinkle 2.4s ease-in-out infinite;
+  animation-delay: var(--twinkle-delay, 0s);
+}
+
+/* Combined: pop in first, then keep twinkling */
+@utility animate-dot-pop-twinkle {
+  animation:
+    dot-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    dot-twinkle 2.4s ease-in-out infinite;
+  animation-delay: var(--dot-delay, 0s), calc(var(--dot-delay, 0s) + 0.45s);
+}
+
+/* Highlight tooltip pill: gentle floating bob */
+@keyframes float-bob {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -4px);
+  }
+}
+
+@utility animate-float-bob {
+  animation: float-bob 2.6s ease-in-out infinite;
+}
+
+/* Dashed highlight line drawing downward */
+@keyframes line-draw {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@utility animate-line-draw {
+  animation: line-draw 0.7s ease-out 0.9s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-glow-breathe,
+  .animate-glow-pulse-subtle,
+  .animate-pulse-dot,
+  .animate-sparkle-sway,
+  .animate-shimmer,
+  .animate-dot-twinkle,
+  .animate-float-bob {
+    animation: none;
+  }
+  .animate-dot-pop,
+  .animate-dot-pop-twinkle,
+  .animate-line-draw {
+    animation: none;
+    opacity: 1;
+    clip-path: none;
+  }
+  .sheen-sweep::after {
+    display: none;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
