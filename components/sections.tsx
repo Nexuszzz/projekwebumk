@@ -162,12 +162,12 @@ export function CaseStudy() {
               Studi Kasus
             </span>
             <h2 className="mt-5 font-display text-2xl font-bold tracking-tight md:text-3xl text-balance">
-              UMKM Nusacid: omzet naik 2x dalam 3 bulan
+              UMKM NUSACID: omzet naik 2x dalam 3 bulan
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground md:text-base">
-              Nusacid, produsen keripik rumahan asal Bandung, dulunya hanya
-              berjualan lewat WhatsApp. Setelah memakai UMKMan, seluruh konten
-              promosi dibuat otomatis dan penjualan online tumbuh konsisten
+              NUSACID, produsen pembersih kerak kamar mandi asal Sidoarjo milik Naufal,
+              dulunya hanya berjualan lewat WhatsApp. Setelah memakai UMKMan, seluruh
+              konten promosi dibuat otomatis dan penjualan online tumbuh konsisten
               tiap minggu.
             </p>
             <a
@@ -184,7 +184,7 @@ export function CaseStudy() {
 
           <div className="border-t border-border bg-background/50 p-8 md:border-l md:border-t-0 md:p-12">
             <p className="text-xs text-muted-foreground">
-              Dashboard Nusacid — 90 hari terakhir
+              Dashboard NUSACID — 90 hari terakhir
             </p>
             <p className="mt-3 font-mono text-4xl font-bold text-accent">
               <CountUp value={104} prefix="+" suffix="%" />

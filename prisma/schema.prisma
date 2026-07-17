@@ -1,0 +1,105 @@
+// UMKMan multi-tenant schema
+// Aktif saat DATABASE_URL di-set (production / docker).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String     @id
+  email             String     @unique
+  name              String
+  passwordHash      String?
+  googleId          String?    @unique
+  picture           String?
+  createdAt         DateTime   @default(now())
+  passwordChangedAt DateTime?
+  sessionVersion    Int        @default(0)
+  /// JSON array of session metadata
+  sessions          Json       @default("[]")
+  /// Last active business for this user (per-user, not global)
+  activeBusinessId  String?
+  businesses        Business[]
+
+  @@map("users")
+}
+
+model Business {
+  id          String        @id
+  slug        String
+  ownerUserId String
+  owner       User          @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  /// BusinessProfile JSON (brand, ai, notifications, …)
+  profile     Json
+  products    Product[]
+  contents    Content[]
+  transactions Transaction[]
+
+  @@unique([ownerUserId, slug])
+  @@index([ownerUserId])
+  @@map("businesses")
+}
+
+model Product {
+  id          String   @id
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  shortName   String
+  variant     String   @default("-")
+  image       String   @default("/placeholder.svg")
+  unitPrice   Int
+  rating      Float    @default(0)
+  sold        Int      @default(0)
+  description String   @default("") @db.Text
+  stock       Int      @default(0)
+  lowStockAt  Int      @default(10)
+  sku         String
+  keywords    Json     @default("[]")
+
+  @@index([businessId])
+  @@map("products")
+}
+
+model Content {
+  id          String   @id
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  title       String
+  description String   @db.Text
+  image       String
+  platform    String
+  status      String
+
+  @@index([businessId])
+  @@map("contents")
+}
+
+model Transaction {
+  id         String   @id
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  productId  String
+  product    String
+  variant    String
+  image      String
+  qty        Int
+  unitPrice  Int
+  total      Int
+  status     String
+  date       String
+  time       String
+
+  @@index([businessId])
+  @@index([businessId, status])
+  @@map("transactions")
+}

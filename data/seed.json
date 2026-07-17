@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-15T00:00:00.000Z",
+  "activeBusinessId": "biz-nusacid",
+  "businesses": [
+    {
+      "id": "biz-nusacid",
+      "slug": "nusacid",
+      "ownerUserId": "user-nusacid-naufal",
+      "createdAt": "2026-03-01T00:00:00.000Z",
+      "updatedAt": "2026-07-15T00:00:00.000Z",
+      "profile": {
+        "brand": "NUSACID",
+        "owner": "Naufal",
+        "city": "Sidoarjo",
+        "region": "Jawa Timur",
+        "country": "Indonesia",
+        "email": "naufal@nusacid.id",
+        "phone": "+62 812-7788-4501",
+        "address": "Sidoarjo, Jawa Timur",
+        "category": "Pembersih kerak kamar mandi & toilet",
+        "platforms": ["Instagram", "Tokopedia", "Lazada", "WhatsApp"],
+        "currency": "IDR",
+        "timezone": "WIB (GMT+7)",
+        "appName": "UMKMan",
+        "tagline": "UMKM Naik Kelas, Ditenagai Kecerdasan Buatan",
+        "ai": {
+          "tone": "Santai",
+          "autoCaption": true,
+          "smartSchedule": true,
+          "autoReply": false
+        },
+        "notifications": {
+          "orders": true,
+          "stock": true,
+          "ai": true,
+          "weekly": false,
+          "wa": true,
+          "email": false
+        },
+        "locale": "id"
+      },
+      "catalog": [
+        {
+          "id": "nusacid-1000",
+          "name": "NUSACID Pembersih Kerak Kamar Mandi 1000 ml",
+          "shortName": "NUSACID 1000 ml",
+          "variant": "1000 ml",
+          "image": "/products/nusacid-1000ml.webp",
+          "unitPrice": 16300,
+          "rating": 4.8,
+          "sold": 531,
+          "description": "NUSACID pembersih kerak kamar mandi kemasan 1000 ml. Efektif mengangkat kerak, noda sabun, dan kotoran membandel di keramik & toilet.",
+          "stock": 86,
+          "lowStockAt": 20,
+          "sku": "NSC-KM-1000",
+          "keywords": ["1000", "1 liter", "1l", "satu liter", "kerak", "kamar mandi"]
+        },
+        {
+          "id": "nusacid-1500",
+          "name": "NUSACID Pembersih Kerak Kamar Mandi 1500 ml",
+          "shortName": "NUSACID 1500 ml",
+          "variant": "1500 ml",
+          "image": "/products/nusacid-1500ml.webp",
+          "unitPrice": 13261,
+          "rating": 4.9,
+          "sold": 867,
+          "description": "NUSACID pembersih kerak kamar mandi kemasan 1500 ml — isi lebih banyak, hemat untuk perawatan rutin kamar mandi. Varian paling laris di toko.",
+          "stock": 42,
+          "lowStockAt": 25,
+          "sku": "NSC-KM-1500",
+          "keywords": ["1500", "1.5", "satu setengah", "paling laris", "hemat"]
+        },
+        {
+          "id": "nusacid-500",
+          "name": "NUSACID Pembersih Kerak Keramik & Toilet 500 ml",
+          "shortName": "NUSACID 500 ml",
+          "variant": "500 ml",
+          "image": "/products/nusacid-500ml.webp",
+          "unitPrice": 12000,
+          "rating": 4.8,
+          "sold": 347,
+          "description": "NUSACID pembersih kerak dan kotoran pada keramik kamar mandi dan toilet, porselen, PVC, dan plastik. Kemasan 500 ml — cocok dicoba dulu.",
+          "stock": 120,
+          "lowStockAt": 30,
+          "sku": "NSC-KT-500",
+          "keywords": ["500", "setengah liter", "trial", "keramik", "toilet", "porselen", "pvc", "plastik"]
+        }
+      ],
+      "contents": [
+        {
+          "id": "c1",
+          "createdAt": "2026-07-15T11:05:41+07:00",
+          "title": "NUSACID Pembersih Kerak Kamar Mandi 1000 ml",
+          "description": "NUSACID pembersih kerak kamar mandi kemasan 1000 ml. Efektif mengangkat kerak, noda sabun, dan kotoran membandel di keramik & toilet.",
+          "image": "/products/nusacid-1000ml.webp",
+          "platform": "Instagram",
+          "status": "Terposting"
+        },
+        {
+          "id": "c2",
+          "createdAt": "2026-07-14T09:21:37+07:00",
+          "title": "NUSACID Pembersih Kerak Kamar Mandi 1000 ml",
+          "description": "NUSACID pembersih kerak kamar mandi kemasan 1000 ml. Harga Rp 16.300. Rating 4.8 · 531 terjual.",
+          "image": "/products/nusacid-1000ml.webp",
+          "platform": "Tokopedia",
+          "status": "Draft"
+        },
+        {
+          "id": "c3",
+          "createdAt": "2026-07-12T10:30:00+07:00",
+          "title": "NUSACID Pembersih Kerak Kamar Mandi 1500 ml",
+          "description": "NUSACID pembersih kerak kamar mandi kemasan 1500 ml — isi lebih banyak, hemat untuk perawatan rutin.",
+          "image": "/products/nusacid-1500ml.webp",
+          "platform": "Lazada",
+          "status": "Terposting"
+        },
+        {
+          "id": "c4",
+          "createdAt": "2026-07-11T08:44:03+07:00",
+          "title": "NUSACID Pembersih Kerak Kamar Mandi 1500 ml",
+          "description": "Varian 1500 ml paling laris. Harga Rp 13.261. Rating 4.9 · 867 terjual.",
+          "image": "/products/nusacid-1500ml.webp",
+          "platform": "Tokopedia",
+          "status": "Draft"
+        },
+        {
+          "id": "c5",
+          "createdAt": "2026-07-09T14:20:00+07:00",
+          "title": "NUSACID Pembersih Kerak Keramik & Toilet 500 ml",
+          "description": "NUSACID 500 ml untuk keramik, toilet, porselen, PVC, dan plastik.",
+          "image": "/products/nusacid-500ml.webp",
+          "platform": "Instagram",
+          "status": "Terposting"
+        },
+        {
+          "id": "c6",
+          "createdAt": "2026-07-07T16:30:00+07:00",
+          "title": "NUSACID Pembersih Kerak Keramik & Toilet 500 ml",
+          "description": "Kemasan 500 ml praktis dicoba dulu. Harga Rp 12.000.",
+          "image": "/products/nusacid-500ml.webp",
+          "platform": "Lazada",
+          "status": "Draft"
+        }
+      ],
+      "transactions": [
+        {
+          "id": "t1",
+          "createdAt": "2026-07-15T14:30:00+07:00",
+          "productId": "nusacid-1000",
+          "product": "NUSACID Pembersih Kerak Kamar Mandi 1000 ml",
+          "variant": "1000 ml",
+          "image": "/products/nusacid-1000ml.webp",
+          "qty": 5,
+          "unitPrice": 16300,
+          "total": 81500,
+          "status": "Tersimpan",
+          "date": "15 Jul 2026",
+          "time": "14.30"
+        },
+        {
+          "id": "t2",
+          "createdAt": "2026-07-14T19:12:00+07:00",
+          "productId": "nusacid-1500",
+          "product": "NUSACID Pembersih Kerak Kamar Mandi 1500 ml",
+          "variant": "1500 ml",
+          "image": "/products/nusacid-1500ml.webp",
+          "qty": 4,
+          "unitPrice": 13261,
+          "total": 53044,
+          "status": "Perlu Verifikasi",
+          "date": "14 Jul 2026",
+          "time": "19.12"
+        },
+        {
+          "id": "t3",
+          "createdAt": "2026-07-14T10:05:00+07:00",
+          "productId": "nusacid-500",
+          "product": "NUSACID Pembersih Kerak Keramik & Toilet 500 ml",
+          "variant": "500 ml",
+          "image": "/products/nusacid-500ml.webp",
+          "qty": 3,
+          "unitPrice": 12000,
+          "total": 36000,
+          "status": "Tersimpan",
+          "date": "14 Jul 2026",
+          "time": "10.05"
+        },
+        {
+          "id": "t4",
+          "createdAt": "2026-07-13T16:48:00+07:00",
+          "productId": "nusacid-1500",
+          "product": "NUSACID Pembersih Kerak Kamar Mandi 1500 ml",
+          "variant": "1500 ml",
+          "image": "/products/nusacid-1500ml.webp",
+          "qty": 10,
+          "unitPrice": 13261,
+          "total": 132610,
+          "status": "Perlu Verifikasi",
+          "date": "13 Jul 2026",
+          "time": "16.48"
+        },
+        {
+          "id": "t5",
+          "createdAt": "2026-07-12T09:20:00+07:00",
+          "productId": "nusacid-1000",
+          "product": "NUSACID Pembersih Kerak Kamar Mandi 1000 ml",
+          "variant": "1000 ml",
+          "image": "/products/nusacid-1000ml.webp",
+          "qty": 2,
+          "unitPrice": 16300,
+          "total": 32600,
+          "status": "Tersimpan",
+          "date": "12 Jul 2026",
+          "time": "09.20"
+        }
+      ]
+    }
+  ]
+}

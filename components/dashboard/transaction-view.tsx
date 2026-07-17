@@ -1,8 +1,14 @@
 'use client'
 
 import { CountUp, Stagger, StaggerItem } from '@/components/motion'
-import { useDashboard, type TransactionItem, type TxMethod, type TxStatus } from '@/lib/dashboard-store'
-import { getTransactionMetrics } from '@/lib/stats'
+import { useDashboard, type TransactionItem, type TxStatus } from '@/lib/dashboard-store'
+import {
+  getTransactionFlowSeries,
+  getTransactionMetrics,
+  getTransactionPeriodDelta,
+  type FlowChartPoint,
+  type StatsPeriod,
+} from '@/lib/stats'
 import { downloadCsv, formatRupiah } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -12,12 +18,10 @@ import {
   Check,
   ChevronDown,
   Download,
-  Mic,
   MoreHorizontal,
   MoreVertical,
   Plus,
   SlidersHorizontal,
-  Type,
 } from 'lucide-react'
 import Image from 'next/image'
 import { useMemo, useState } from 'react'
@@ -50,15 +54,52 @@ const DELTA_TONE: Record<Stat['tone'], string> = {
   warm: 'bg-accent-warm/15 text-accent-warm',
 }
 
+function growthBadge(growth: number | null): { delta: string; tone: Stat['tone']; compare: string } {
+  if (growth === null) {
+    return { delta: 'Baru', tone: 'positive', compare: 'Belum ada data bulan lalu' }
+  }
+  return {
+    delta: `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`,
+    tone: growth >= 0 ? 'positive' : 'negative',
+    compare: 'Dibanding bulan lalu',
+  }
+}
+
 function TransactionStats({ transactions }: { transactions: TransactionItem[] }) {
   const metrics = useMemo(() => getTransactionMetrics(transactions), [transactions])
-  const avgGrowth = metrics.previousAverage === 0 ? 0 : ((metrics.average - metrics.previousAverage) / metrics.previousAverage) * 100
-  const highGrowth = metrics.previousHighest === 0 ? 0 : ((metrics.highest - metrics.previousHighest) / metrics.previousHighest) * 100
+  const avg = growthBadge(metrics.averageGrowth)
+  const high = growthBadge(metrics.highestGrowth)
   const stats: Stat[] = [
-    { label: 'Total Transaksi Bulan Ini', value: metrics.count, delta: `${metrics.count}`, tone: 'positive', compare: 'Dari data bulan berjalan' },
-    { label: 'Rata-rata Nilai Transaksi', value: Math.round(metrics.average), prefix: 'Rp ', delta: `${avgGrowth >= 0 ? '+' : ''}${avgGrowth.toFixed(1)}%`, tone: avgGrowth >= 0 ? 'positive' : 'negative', compare: 'Dibanding bulan lalu' },
-    { label: 'Transaksi Tertinggi', value: metrics.highest, prefix: 'Rp ', delta: `${highGrowth >= 0 ? '+' : ''}${highGrowth.toFixed(1)}%`, tone: highGrowth >= 0 ? 'positive' : 'negative', compare: 'Dibanding bulan lalu' },
-    { label: 'Perlu Verifikasi', value: metrics.needsVerification, delta: `${metrics.needsVerification}`, tone: 'warm', compare: 'Transaksi yang perlu dicek' },
+    {
+      label: 'Total Transaksi Bulan Ini',
+      value: metrics.count,
+      delta: metrics.hasPreviousPeriod ? `${metrics.count}` : 'Baru',
+      tone: 'positive',
+      compare: 'Dari data bulan berjalan',
+    },
+    {
+      label: 'Rata-rata Nilai Transaksi',
+      value: Math.round(metrics.average),
+      prefix: 'Rp ',
+      delta: avg.delta,
+      tone: avg.tone,
+      compare: avg.compare,
+    },
+    {
+      label: 'Transaksi Tertinggi',
+      value: metrics.highest,
+      prefix: 'Rp ',
+      delta: high.delta,
+      tone: high.tone,
+      compare: high.compare,
+    },
+    {
+      label: 'Perlu Verifikasi',
+      value: metrics.needsVerification,
+      delta: String(metrics.needsVerification),
+      tone: 'warm',
+      compare: 'Transaksi yang perlu dicek',
+    },
   ]
   return (
     <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -92,45 +133,37 @@ function TransactionStats({ transactions }: { transactions: TransactionItem[] })
 }
 
 /* ============================================================
-   Panel kiri: "Arus Transaksi" — line chart SVG dua warna
+   Panel kiri: "Arus Transaksi" — line chart omzet harian
+   Data 100% dari getTransactionFlowSeries (bukan hardcode).
    ============================================================ */
-
-type ChartPoint = { label: string; teks: number; suara: number }
-
-const CHART: ChartPoint[] = [
-  { label: '1 Jul', teks: 420, suara: 180 },
-  { label: '3 Jul', teks: 510, suara: 260 },
-  { label: '5 Jul', teks: 470, suara: 340 },
-  { label: '7 Jul', teks: 620, suara: 300 },
-  { label: '9 Jul', teks: 580, suara: 410 },
-  { label: '11 Jul', teks: 730, suara: 380 },
-  { label: '13 Jul', teks: 690, suara: 460 },
-  { label: '15 Jul', teks: 840, suara: 520 },
-]
 
 const CHART_W = 640
 const CHART_H = 220
 const PAD_X = 12
 const PAD_Y = 18
-const MAX_Y = 900
 
-function toX(i: number) {
-  return PAD_X + (i / (CHART.length - 1)) * (CHART_W - PAD_X * 2)
+function chartScale(points: FlowChartPoint[]) {
+  const maxRaw = Math.max(1, ...points.map((p) => p.dayTotal))
+  // Padding visual agar garis tidak menempel tepi atas.
+  const maxY = maxRaw * 1.15
+  const last = Math.max(points.length - 1, 1)
+  const toX = (i: number) => PAD_X + (i / last) * (CHART_W - PAD_X * 2)
+  const toY = (v: number) => CHART_H - PAD_Y - (v / maxY) * (CHART_H - PAD_Y * 2)
+  const linePath = () =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i)} ${toY(p.dayTotal)}`).join(' ')
+  return { toX, toY, linePath, maxY }
 }
 
-function toY(v: number) {
-  return CHART_H - PAD_Y - (v / MAX_Y) * (CHART_H - PAD_Y * 2)
-}
+const PERIODS: StatsPeriod[] = ['Hari Ini', 'Minggu Ini', 'Bulan Ini']
 
-function linePath(key: 'teks' | 'suara') {
-  return CHART.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i)} ${toY(p[key])}`).join(' ')
-}
-
-const PERIODS = ['Hari Ini', 'Minggu Ini', 'Bulan Ini'] as const
-
-function PeriodDropdown() {
+function PeriodDropdown({
+  period,
+  onPeriodChange,
+}: {
+  period: StatsPeriod
+  onPeriodChange: (period: StatsPeriod) => void
+}) {
   const [open, setOpen] = useState(false)
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]>('Bulan Ini')
 
   return (
     <div className="relative">
@@ -166,7 +199,7 @@ function PeriodDropdown() {
                   role="option"
                   aria-selected={p === period}
                   onClick={() => {
-                    setPeriod(p)
+                    onPeriodChange(p)
                     setOpen(false)
                   }}
                   className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors ${
@@ -187,11 +220,19 @@ function PeriodDropdown() {
   )
 }
 
-function FlowChart() {
-  const [hovered, setHovered] = useState<number>(CHART.length - 1)
-  const point = CHART[hovered]
-  const xPct = (toX(hovered) / CHART_W) * 100
-  const yPct = (toY(point.teks) / CHART_H) * 100
+function FlowChart({ points }: { points: FlowChartPoint[] }) {
+  const safePoints = points.length > 0 ? points : [{ date: new Date(), label: '—', dayTotal: 0 }]
+  const { toX, toY, linePath } = chartScale(safePoints)
+  const defaultHover = Math.max(
+    0,
+    safePoints.reduce((best, p, i) => (p.dayTotal >= (safePoints[best]?.dayTotal ?? 0) ? i : best), 0),
+  )
+  const [hovered, setHovered] = useState(defaultHover)
+  const activeIndex = Math.min(hovered, safePoints.length - 1)
+  const point = safePoints[activeIndex]
+  const xPct = (toX(activeIndex) / CHART_W) * 100
+  const yPct = (toY(Math.max(point.dayTotal, 1)) / CHART_H) * 100
+  const slotWidth = (CHART_W - PAD_X * 2) / Math.max(safePoints.length - 1, 1)
 
   return (
     <div className="min-w-0">
@@ -200,9 +241,10 @@ function FlowChart() {
           viewBox={`0 0 ${CHART_W} ${CHART_H}`}
           className="h-44 w-full sm:h-56"
           role="img"
-          aria-label="Grafik arus transaksi Juli: transaksi teks naik dari 420 ribu ke 840 ribu, transaksi suara naik dari 180 ribu ke 520 ribu."
+          aria-label={`Grafik arus transaksi: total periode ${formatRupiah(
+            safePoints.reduce((s, p) => s + p.dayTotal, 0),
+          )}.`}
         >
-          {/* Grid halus */}
           {[0.25, 0.5, 0.75].map((f) => (
             <line
               key={f}
@@ -216,30 +258,16 @@ function FlowChart() {
             />
           ))}
 
-          {/* Area lembut di bawah garis teks */}
           <motion.path
-            d={`${linePath('teks')} L ${toX(CHART.length - 1)} ${CHART_H - PAD_Y} L ${toX(0)} ${CHART_H - PAD_Y} Z`}
+            d={`${linePath()} L ${toX(safePoints.length - 1)} ${CHART_H - PAD_Y} L ${toX(0)} ${CHART_H - PAD_Y} Z`}
             fill="var(--accent)"
             initial={{ opacity: 0 }}
             animate={{ opacity: 0.07 }}
             transition={{ delay: 0.9, duration: 0.6 }}
           />
 
-          {/* Garis Suara (accent-warm) */}
           <motion.path
-            d={linePath('suara')}
-            fill="none"
-            stroke="var(--accent-warm)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            initial={{ pathLength: 0 }}
-            animate={{ pathLength: 1 }}
-            transition={{ duration: 1.2, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          />
-
-          {/* Garis Teks (accent lime) */}
-          <motion.path
-            d={linePath('teks')}
+            d={linePath()}
             fill="none"
             stroke="var(--accent)"
             strokeWidth="2.5"
@@ -249,10 +277,9 @@ function FlowChart() {
             transition={{ duration: 1.2, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           />
 
-          {/* Garis vertikal titik aktif */}
           <motion.line
-            x1={toX(hovered)}
-            x2={toX(hovered)}
+            x1={toX(activeIndex)}
+            x2={toX(activeIndex)}
             y1={PAD_Y - 6}
             y2={CHART_H - PAD_Y}
             stroke="var(--accent)"
@@ -264,34 +291,23 @@ function FlowChart() {
             transition={{ delay: 1.2 }}
           />
 
-          {/* Titik data */}
-          {CHART.map((p, i) => (
-            <g key={p.label}>
+          {safePoints.map((p, i) => (
+            <g key={`${p.label}-${i}`}>
               <motion.circle
                 cx={toX(i)}
-                cy={toY(p.suara)}
-                r={hovered === i ? 4 : 2.5}
-                fill="var(--accent-warm)"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 + i * 0.07, type: 'spring', stiffness: 300, damping: 16 }}
-              />
-              <motion.circle
-                cx={toX(i)}
-                cy={toY(p.teks)}
-                r={hovered === i ? 5 : 3}
+                cy={toY(p.dayTotal)}
+                r={activeIndex === i ? 5 : 3}
                 fill="var(--accent)"
                 stroke="var(--card)"
-                strokeWidth={hovered === i ? 2 : 0}
+                strokeWidth={activeIndex === i ? 2 : 0}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.4 + i * 0.07, type: 'spring', stiffness: 300, damping: 16 }}
+                transition={{ delay: 0.4 + i * 0.03, type: 'spring', stiffness: 300, damping: 16 }}
               />
-              {/* Hit area hover per kolom */}
               <rect
-                x={toX(i) - (CHART_W - PAD_X * 2) / (CHART.length - 1) / 2}
+                x={toX(i) - slotWidth / 2}
                 y={0}
-                width={(CHART_W - PAD_X * 2) / (CHART.length - 1)}
+                width={slotWidth}
                 height={CHART_H}
                 fill="transparent"
                 onMouseEnter={() => setHovered(i)}
@@ -303,67 +319,91 @@ function FlowChart() {
           ))}
         </svg>
 
-        {/* Tooltip card melayang */}
         <motion.div
-          key={hovered}
+          key={activeIndex}
           initial={{ opacity: 0, y: 6, scale: 0.92 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           style={{ left: `${xPct}%`, top: `${yPct}%` }}
           className={`pointer-events-none absolute z-10 -translate-y-[calc(100%+10px)] whitespace-nowrap rounded-lg border border-accent/40 bg-card px-2.5 py-1.5 shadow-[0_0_18px_-4px_color-mix(in_oklch,var(--accent)_45%,transparent)] ${
-            hovered > CHART.length - 3 ? '-translate-x-full' : '-translate-x-1/2'
+            activeIndex > safePoints.length - 3 ? '-translate-x-full' : '-translate-x-1/2'
           }`}
           aria-hidden="true"
         >
-          <p className="font-mono text-[10px] text-muted-foreground">{point.label} 2026</p>
-          <p className="font-mono text-xs font-bold text-foreground">
-            {formatRupiah(point.teks * 1000)}
-          </p>
-          <p className="font-mono text-[10px] text-accent-warm">
-            Suara {formatRupiah(point.suara * 1000)}
-          </p>
+          <p className="font-mono text-[10px] text-muted-foreground">{point.label}</p>
+          <p className="font-mono text-xs font-bold text-foreground">{formatRupiah(point.dayTotal)}</p>
         </motion.div>
       </div>
 
-      {/* Label tanggal sumbu bawah */}
       <div className="mt-2 flex justify-between px-1" aria-hidden="true">
-        {CHART.map((p, i) => (
-          <motion.span
-            key={p.label}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 + i * 0.06 }}
-            className={`font-mono text-[10px] ${
-              hovered === i ? 'font-bold text-accent' : 'text-muted-foreground'
-            }`}
-          >
-            {p.label}
-          </motion.span>
-        ))}
+        {safePoints.map((p, i) => {
+          const showLabel =
+            safePoints.length <= 8 ||
+            i === 0 ||
+            i === safePoints.length - 1 ||
+            i % Math.ceil(safePoints.length / 6) === 0
+          return (
+            <motion.span
+              key={`${p.label}-${i}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 + i * 0.02 }}
+              className={`font-mono text-[10px] ${
+                activeIndex === i ? 'font-bold text-accent' : 'text-muted-foreground'
+              }`}
+            >
+              {showLabel ? p.label : ''}
+            </motion.span>
+          )
+        })}
       </div>
     </div>
   )
 }
 
 function TransactionFlowPanel({ transactions }: { transactions: TransactionItem[] }) {
-  const total = useMemo(() => getTransactionMetrics(transactions).total, [transactions])
+  const [period, setPeriod] = useState<StatsPeriod>('Bulan Ini')
+  // Header total = sum titik harian pada periode yang sama (satu sumber: getTransactionFlowSeries).
+  const flow = useMemo(() => getTransactionFlowSeries(transactions, period), [transactions, period])
+  const periodDelta = useMemo(
+    () => getTransactionPeriodDelta(transactions, period),
+    [transactions, period],
+  )
+
+  const showDelta = periodDelta.hasComparable && periodDelta.delta !== 0
+  const deltaLabel = !showDelta
+    ? 'Transaksi periode ini'
+    : periodDelta.delta > 0
+      ? `+${periodDelta.delta} transaksi baru periode ini`
+      : `${periodDelta.delta} transaksi periode ini`
+
   return (
     <section className="flex min-w-0 flex-col gap-5 rounded-2xl border border-border bg-background/50 p-5 sm:p-6 lg:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-lg font-bold tracking-tight">Arus Transaksi</h2>
           <CountUp
-            value={total}
+            value={flow.total}
             prefix="Rp "
             className="mt-1 block font-display text-3xl font-bold tracking-tight sm:text-4xl"
           />
-          <p className="mt-1 flex items-center gap-1 text-xs font-medium text-accent">
-            <ArrowUpRight className="size-3.5" aria-hidden="true" />
-            +36 transaksi baru periode ini
+          <p
+            className={`mt-1 flex items-center gap-1 text-xs font-medium ${
+              showDelta
+                ? periodDelta.delta > 0
+                  ? 'text-accent'
+                  : 'text-destructive'
+                : 'text-muted-foreground'
+            }`}
+          >
+            {showDelta && periodDelta.delta > 0 && (
+              <ArrowUpRight className="size-3.5" aria-hidden="true" />
+            )}
+            {deltaLabel}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <PeriodDropdown />
+          <PeriodDropdown period={period} onPeriodChange={setPeriod} />
           <motion.button
             type="button"
             whileTap={{ scale: 0.92 }}
@@ -375,7 +415,6 @@ function TransactionFlowPanel({ transactions }: { transactions: TransactionItem[
         </div>
       </div>
 
-      {/* Legend */}
       <ul className="flex gap-5 text-xs">
         <motion.li
           initial={{ opacity: 0, x: -8 }}
@@ -384,20 +423,11 @@ function TransactionFlowPanel({ transactions }: { transactions: TransactionItem[
           className="flex items-center gap-2 text-muted-foreground"
         >
           <span className="h-0.5 w-5 rounded-full bg-accent" aria-hidden="true" />
-          Transaksi Teks
-        </motion.li>
-        <motion.li
-          initial={{ opacity: 0, x: -8 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.25, duration: 0.35 }}
-          className="flex items-center gap-2 text-muted-foreground"
-        >
-          <span className="h-0.5 w-5 rounded-full bg-accent-warm" aria-hidden="true" />
-          Transaksi Suara
+          Omzet harian
         </motion.li>
       </ul>
 
-      <FlowChart />
+      <FlowChart points={flow.points} />
     </section>
   )
 }
@@ -481,19 +511,6 @@ function RecentTransactionsPanel({ transactions }: { transactions: TransactionIt
    Panel bawah: "Data Transaksi Lengkap" — tabel detail
    ============================================================ */
 
-function MethodBadge({ method }: { method: TxMethod }) {
-  return (
-    <span className="flex items-center gap-1.5 text-muted-foreground">
-      {method === 'Suara' ? (
-        <Mic className="size-3.5 text-accent-warm" aria-hidden="true" />
-      ) : (
-        <Type className="size-3.5 text-accent" aria-hidden="true" />
-      )}
-      {method}
-    </span>
-  )
-}
-
 const DATE_RANGES = [
   { key: '7', label: '7 Hari Terakhir', days: 7 },
   { key: '15', label: '15 Hari Terakhir', days: 15 },
@@ -504,16 +521,15 @@ const DATE_RANGES = [
 type DateRangeKey = (typeof DATE_RANGES)[number]['key']
 
 const TRANSACTION_STATUSES: TxStatus[] = ['Tersimpan', 'Perlu Verifikasi']
-const TRANSACTION_METHODS: TxMethod[] = ['Teks', 'Suara']
 
 function TransactionTable() {
-  const { transactions } = useDashboard()
+  const { transactions, updateTransaction } = useDashboard()
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [range, setRange] = useState<DateRangeKey>('15')
   const [rangeOpen, setRangeOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [statusFilters, setStatusFilters] = useState<Set<TxStatus>>(new Set())
-  const [methodFilters, setMethodFilters] = useState<Set<TxMethod>>(new Set())
   const activeRange = DATE_RANGES.find((option) => option.key === range) ?? DATE_RANGES[1]
   const filteredTransactions = useMemo(() => {
     const start = activeRange.days === null || transactions.length === 0
@@ -522,17 +538,16 @@ function TransactionTable() {
     return transactions.filter((item) => {
       const inDateRange = new Date(item.createdAt).getTime() >= start
       const statusMatches = statusFilters.size === 0 || statusFilters.has(item.status)
-      const methodMatches = methodFilters.size === 0 || methodFilters.has(item.method)
-      return inDateRange && statusMatches && methodMatches
+      return inDateRange && statusMatches
     })
-  }, [activeRange.days, methodFilters, statusFilters, transactions])
+  }, [activeRange.days, statusFilters, transactions])
   const dateFilteredTransactions = useMemo(() => {
     if (activeRange.days === null || transactions.length === 0) return transactions
     const latest = Math.max(...transactions.map((item) => new Date(item.createdAt).getTime()))
     const start = latest - (activeRange.days - 1) * 86_400_000
     return transactions.filter((item) => new Date(item.createdAt).getTime() >= start)
   }, [activeRange.days, transactions])
-  const activeFilterCount = statusFilters.size + methodFilters.size
+  const activeFilterCount = statusFilters.size
   const visibleSelected = filteredTransactions.filter((item) => selected.has(item.id)).length
   const allSelected = filteredTransactions.length > 0 && visibleSelected === filteredTransactions.length
 
@@ -564,15 +579,6 @@ function TransactionTable() {
       const next = new Set(current)
       if (next.has(status)) next.delete(status)
       else next.add(status)
-      return next
-    })
-  }
-
-  function toggleMethod(method: TxMethod) {
-    setMethodFilters((current) => {
-      const next = new Set(current)
-      if (next.has(method)) next.delete(method)
-      else next.add(method)
       return next
     })
   }
@@ -628,8 +634,8 @@ function TransactionTable() {
             type="button"
             whileTap={{ scale: 0.96 }}
             onClick={() => downloadCsv('transaksi.csv', [
-              ['Produk', 'Varian', 'Total', 'Metode', 'Status', 'Tanggal'],
-              ...filteredTransactions.map((item) => [item.product, item.variant, item.total, item.method, item.status, item.createdAt]),
+              ['Produk', 'Varian', 'Total', 'Status', 'Tanggal'],
+              ...filteredTransactions.map((item) => [item.product, item.variant, item.total, item.status, item.createdAt]),
             ])}
             className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-accent/40 hover:text-foreground"
           >
@@ -660,18 +666,12 @@ function TransactionTable() {
               >
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold">Filter Transaksi</h3>
-                  {activeFilterCount > 0 && <button type="button" onClick={() => { setStatusFilters(new Set()); setMethodFilters(new Set()) }} className="text-xs font-semibold text-accent hover:underline">Reset</button>}
+                  {activeFilterCount > 0 && <button type="button" onClick={() => { setStatusFilters(new Set()) }} className="text-xs font-semibold text-accent hover:underline">Reset</button>}
                 </div>
                 <fieldset className="mt-4">
                   <legend className="text-xs font-medium text-muted-foreground">Status</legend>
                   <div className="mt-2 flex flex-col gap-2">
                     {TRANSACTION_STATUSES.map((status) => <label key={status} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs hover:bg-secondary"><input type="checkbox" checked={statusFilters.has(status)} onChange={() => toggleStatus(status)} className="size-4 accent-[var(--accent)]" />{status}</label>)}
-                  </div>
-                </fieldset>
-                <fieldset className="mt-4">
-                  <legend className="text-xs font-medium text-muted-foreground">Metode Input</legend>
-                  <div className="mt-2 flex flex-col gap-2">
-                    {TRANSACTION_METHODS.map((method) => <label key={method} className="flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-2 text-xs hover:bg-secondary"><input type="checkbox" checked={methodFilters.has(method)} onChange={() => toggleMethod(method)} className="size-4 accent-[var(--accent)]" />{method}</label>)}
                   </div>
                 </fieldset>
                 <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">{filteredTransactions.length} dari {dateFilteredTransactions.length} transaksi ditampilkan</p>
@@ -705,9 +705,6 @@ function TransactionTable() {
               </th>
               <th scope="col" className="pb-3 pr-4 font-medium">
                 Nilai
-              </th>
-              <th scope="col" className="pb-3 pr-4 font-medium">
-                Metode Input
               </th>
               <th scope="col" className="pb-3 pr-4 font-medium">
                 Status
@@ -761,9 +758,6 @@ function TransactionTable() {
                     {formatRupiah(row.total)}
                   </td>
                   <td className="py-3.5 pr-4">
-                    <MethodBadge method={row.method} />
-                  </td>
-                  <td className="py-3.5 pr-4">
                     <span
                       className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[row.status]}`}
                     >
@@ -774,13 +768,43 @@ function TransactionTable() {
                     {row.date}, {row.time}
                   </td>
                   <td className="py-3.5 text-right">
-                    <button
-                      type="button"
-                      aria-label={`Aksi untuk ${row.product}`}
-                      className="rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    >
-                      <MoreVertical className="size-4" aria-hidden="true" />
-                    </button>
+                    {row.status === 'Perlu Verifikasi' ? (
+                      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          disabled={busyId === row.id}
+                          onClick={() => {
+                            setBusyId(row.id)
+                            void updateTransaction(row.id, 'verify')
+                              .catch((e) =>
+                                window.alert(e instanceof Error ? e.message : 'Gagal verifikasi'),
+                              )
+                              .finally(() => setBusyId(null))
+                          }}
+                          className="rounded-full bg-accent px-2.5 py-1 text-[11px] font-semibold text-accent-foreground disabled:opacity-50"
+                        >
+                          Verifikasi
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyId === row.id}
+                          onClick={() => {
+                            if (!window.confirm('Batalkan transaksi ini?')) return
+                            setBusyId(row.id)
+                            void updateTransaction(row.id, 'reject')
+                              .catch((e) =>
+                                window.alert(e instanceof Error ? e.message : 'Gagal batalkan'),
+                              )
+                              .finally(() => setBusyId(null))
+                          }}
+                          className="rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-destructive disabled:opacity-50"
+                        >
+                          Batalkan
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">Final</span>
+                    )}
                   </td>
                 </motion.tr>
               )

@@ -102,13 +102,13 @@ export function FloatingCards() {
             </span>
             <div>
               <p className="text-sm font-medium text-foreground">
-                Keripik Singkong Balado
+                NUSACID 1000 ml
               </p>
-              <p className="text-xs text-muted-foreground">Produk unggulan</p>
+              <p className="text-xs text-muted-foreground">Pembersih kerak · Sidoarjo</p>
             </div>
           </div>
           <p className="mt-4 font-mono text-2xl font-bold text-foreground">
-            Rp15.000
+            Rp16.300
           </p>
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] text-accent">
             <motion.span

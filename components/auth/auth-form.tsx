@@ -2,12 +2,10 @@
 
 import { AnimatePresence, motion } from 'framer-motion'
 import { Eye, EyeOff, Zap } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useId, useState, type ReactNode } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 
 type Mode = 'login' | 'signup'
-
-/* ---------- Small pieces ---------- */
 
 function GoogleIcon() {
   return (
@@ -32,14 +30,25 @@ function GoogleIcon() {
   )
 }
 
-function SocialButton({ icon, label, onClick }: { icon: ReactNode; label: string; onClick: () => void }) {
+function SocialButton({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
   return (
-      <motion.button
+    <motion.button
       type="button"
       onClick={onClick}
-      whileHover={{ y: -1 }}
-      whileTap={{ scale: 0.985 }}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-input bg-transparent text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+      disabled={disabled}
+      whileHover={disabled ? undefined : { y: -1 }}
+      whileTap={disabled ? undefined : { scale: 0.985 }}
+      className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-input bg-transparent text-sm font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
     >
       {icon}
       {label}
@@ -99,8 +108,6 @@ function Field({
   )
 }
 
-/* ---------- Form ---------- */
-
 const swap = {
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
@@ -108,8 +115,17 @@ const swap = {
   transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] as const },
 }
 
+const ERROR_MAP: Record<string, string> = {
+  google_not_configured: 'Login Google belum dikonfigurasi di server (.env.local).',
+  google_state: 'Sesi Google tidak valid. Coba lagi.',
+  google_token: 'Gagal menukar kode Google. Cek Client ID/Secret.',
+  google_profile: 'Gagal membaca profil Google.',
+  google_failed: 'Login Google gagal. Coba lagi.',
+}
+
 export function AuthForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -117,6 +133,11 @@ export function AuthForm() {
   const [business, setBusiness] = useState('')
   const [name, setName] = useState('')
   const [agreed, setAgreed] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const urlError = searchParams.get('error')
+  const displayError = error || (urlError ? ERROR_MAP[urlError] || urlError : null)
 
   const loginValid = email.trim() !== '' && password.trim() !== ''
   const signupValid =
@@ -124,12 +145,57 @@ export function AuthForm() {
     business.trim() !== '' &&
     name.trim() !== '' &&
     confirm.trim() !== '' &&
+    password.length >= 8 &&
+    password === confirm &&
     agreed
   const valid = mode === 'login' ? loginValid : signupValid
 
+  const nextPath = useMemo(() => searchParams.get('next') || '/dashboard', [searchParams])
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!valid || loading) return
+    setLoading(true)
+    setError(null)
+    try {
+      if (mode === 'login') {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        const payload = await res.json()
+        if (!res.ok) throw new Error(payload.error || 'Gagal masuk.')
+      } else {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            confirm,
+            name,
+            business,
+          }),
+        })
+        const payload = await res.json()
+        if (!res.ok) throw new Error(payload.error || 'Gagal daftar.')
+      }
+      router.push(nextPath)
+      router.refresh()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Terjadi kesalahan.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function loginWithGoogle() {
+    window.location.href = '/api/auth/google'
+  }
+
   return (
     <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:px-14">
-      {/* Logo */}
       <motion.a
         href="/"
         className="flex items-center gap-2.5"
@@ -150,12 +216,26 @@ export function AuthForm() {
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
             {mode === 'login'
-              ? 'Masuk untuk lanjutkan kelola konten dan transaksimu'
-              : 'Mulai otomatiskan konten dan pencatatan UMKM-mu hari ini'}
+              ? 'Masuk ke akunmu — data usaha terisolasi per akun.'
+              : 'Daftar akun baru. Usaha NUSACID tidak tercampur dengan akun lain.'}
           </p>
 
+          {displayError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+            >
+              {displayError}
+            </p>
+          )}
+
           <div className="mt-7 flex flex-col gap-3">
-            <SocialButton icon={<GoogleIcon />} label="Lanjutkan dengan Google" onClick={() => window.alert('Login Google belum tersedia pada mode demo. Gunakan form email untuk masuk.')} />
+            <SocialButton
+              icon={<GoogleIcon />}
+              label="Lanjutkan dengan Google"
+              onClick={loginWithGoogle}
+              disabled={loading}
+            />
           </div>
 
           <div className="my-6 flex items-center gap-4" role="separator">
@@ -164,20 +244,14 @@ export function AuthForm() {
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (valid) router.push('/dashboard')
-            }}
-          >
+          <form className="flex flex-col gap-4" onSubmit={(e) => void onSubmit(e)}>
             {mode === 'signup' && (
               <>
                 <Field
                   label="Nama Usaha"
                   value={business}
                   onChange={setBusiness}
-                  placeholder="Contoh: Kopi Senja"
+                  placeholder="Contoh: Kopi Nusantara"
                 />
                 <Field
                   label="Nama Lengkap"
@@ -217,48 +291,26 @@ export function AuthForm() {
               />
             )}
 
-            <div className="flex items-center justify-between gap-3">
+            {mode === 'signup' && (
               <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
                 <input
                   type="checkbox"
-                  checked={mode === 'signup' ? agreed : undefined}
-                  onChange={
-                    mode === 'signup'
-                      ? (e) => setAgreed(e.target.checked)
-                      : undefined
-                  }
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
                   className="size-4 rounded border-input accent-[var(--accent)]"
                 />
-                {mode === 'login' ? (
-                  'Ingat saya'
-                ) : (
-                  <span>
-                    Saya setuju dengan{' '}
-                    <button type="button" onClick={() => window.alert('Halaman Syarat & Ketentuan belum tersedia pada mode demo.')} className="font-medium text-accent hover:underline">
-                      Syarat &amp; Ketentuan
-                    </button>
-                  </span>
-                )}
+                <span>Saya setuju membuat akun UMKMan untuk usaha saya sendiri.</span>
               </label>
-              {mode === 'login' && (
-                <button
-                  type="button"
-                  onClick={() => window.alert('Reset kata sandi belum tersedia pada mode demo.')}
-                  className="text-sm font-medium text-accent hover:underline"
-                >
-                  Lupa kata sandi?
-                </button>
-              )}
-            </div>
+            )}
 
             <motion.button
               type="submit"
-              disabled={!valid}
-              whileHover={valid ? { y: -1 } : undefined}
-              whileTap={valid ? { scale: 0.985 } : undefined}
+              disabled={!valid || loading}
+              whileHover={valid && !loading ? { y: -1 } : undefined}
+              whileTap={valid && !loading ? { scale: 0.985 } : undefined}
               className="mt-1 h-12 w-full rounded-xl bg-foreground text-sm font-semibold text-background transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {mode === 'login' ? 'Masuk' : 'Buat Akun'}
+              {loading ? 'Memproses...' : mode === 'login' ? 'Masuk' : 'Buat Akun'}
             </motion.button>
           </form>
 
@@ -266,7 +318,10 @@ export function AuthForm() {
             {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
             <button
               type="button"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
+              onClick={() => {
+                setMode(mode === 'login' ? 'signup' : 'login')
+                setError(null)
+              }}
               className="font-semibold text-accent hover:underline"
             >
               {mode === 'login' ? 'Daftar' : 'Masuk'}

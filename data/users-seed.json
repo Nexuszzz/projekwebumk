@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-15T00:00:00.000Z",
+  "users": [
+    {
+      "id": "user-nusacid-naufal",
+      "email": "naufal@nusacid.id",
+      "name": "Naufal",
+      "passwordHash": "$2b$10$rKPhcsgsvAj7vrfn6miPXePEq8V1R/HmiI5bt/ZzIuiS9lMPwe2qy",
+      "googleId": null,
+      "picture": null,
+      "createdAt": "2026-03-01T00:00:00.000Z"
+    }
+  ]
+}

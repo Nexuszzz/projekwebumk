@@ -1,211 +1,71 @@
 'use client'
 
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from 'react'
+import { defaultCatalogProduct, findCatalogProduct, resolveProductImage } from '@/lib/catalog-utils'
+import type {
+  AuthUser,
+  BusinessProfile,
+  BusinessSummary,
+  CatalogProduct,
+  ContentItem,
+  ContentStatus,
+  CreateBusinessInput,
+  Platform,
+  TransactionItem,
+  TxStatus,
+} from '@/lib/types'
+import {
+  createContext,
+  use,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 
-/* ============================================================
-   Tipe data bersama untuk dashboard (in-memory, tanpa backend)
-   ============================================================ */
-
-export type Platform = 'Instagram' | 'Tokopedia' | 'Lazada'
-export type ContentStatus = 'Draft' | 'Terposting'
-
-export type ContentItem = {
-  id: string
-  createdAt: string
-  title: string
-  description: string
-  image: string
-  platform: Platform
-  status: ContentStatus
-}
-
-export type TxStatus = 'Tersimpan' | 'Perlu Verifikasi'
-export type TxMethod = 'Teks' | 'Suara'
-
-export type TransactionItem = {
-  id: string
-  createdAt: string
-  product: string
-  variant: string
-  image: string
-  total: number
-  method: TxMethod
-  status: TxStatus
-  date: string
-  time: string
-}
-
-/* ============================================================
-   Seed data — dipindah dari content-view & transaction-view
-   ============================================================ */
-
-const SEED_CONTENTS: ContentItem[] = [
-  {
-    id: 'c1',
-    createdAt: '2026-07-15T11:05:41+07:00',
-    title: 'Sabun Nusacid',
-    description:
-      'Sabun anti bakteri dengan bahan alami khas Nusantara, lembut di kulit dan wangi tahan lama.',
-    image: '/products/nusacid.png',
-    platform: 'Instagram',
-    status: 'Terposting',
-  },
-  {
-    id: 'c2',
-    createdAt: '2026-07-14T09:21:37+07:00',
-    title: 'Kopi Arabika Gayo',
-    description:
-      'Kopi arabika Gayo single origin dengan aroma floral dan aftertaste karamel yang khas.',
-    image: '/products/kopi.png',
-    platform: 'Tokopedia',
-    status: 'Draft',
-  },
-  {
-    id: 'c3',
-    createdAt: '2026-07-12T10:30:00+07:00',
-    title: 'Keripik Singkong',
-    description:
-      'Keripik singkong renyah dengan bumbu balado pedas manis, digoreng dengan minyak baru.',
-    image: '/products/keripik.png',
-    platform: 'Lazada',
-    status: 'Terposting',
-  },
-  {
-    id: 'c4',
-    createdAt: '2026-07-11T08:44:03+07:00',
-    title: 'Madu Hutan Murni',
-    description:
-      'Madu hutan asli tanpa campuran, dipanen langsung dari lebah liar di hutan Sumatera.',
-    image: '/products/madu.png',
-    platform: 'Lazada',
-    status: 'Draft',
-  },
-  {
-    id: 'c5',
-    createdAt: '2026-07-09T14:20:00+07:00',
-    title: 'Kopi Bubuk Premium',
-    description:
-      'Kopi bubuk giling halus untuk seduhan tubruk maupun filter, dikemas kedap udara.',
-    image: '/products/kopi.png',
-    platform: 'Instagram',
-    status: 'Terposting',
-  },
-  {
-    id: 'c6',
-    createdAt: '2026-07-07T16:30:00+07:00',
-    title: 'Tas Anyaman Rotan',
-    description:
-      'Tas anyaman rotan buatan tangan pengrajin lokal, kuat dan cocok untuk gaya kasual.',
-    image: '/products/tas.png',
-    platform: 'Tokopedia',
-    status: 'Draft',
-  },
-  {
-    id: 'c7',
-    createdAt: '2026-07-05T09:30:00+07:00',
-    title: 'Sabun Nusacid Travel',
-    description:
-      'Kemasan travel 50 g, praktis dibawa bepergian dengan perlindungan anti bakteri yang sama.',
-    image: '/products/nusacid.png',
-    platform: 'Lazada',
-    status: 'Terposting',
-  },
-  {
-    id: 'c8',
-    createdAt: '2026-07-03T13:45:00+07:00',
-    title: 'Madu Sachet Praktis',
-    description:
-      'Madu murni dalam kemasan sachet sekali pakai, pas untuk bekal dan minuman hangat.',
-    image: '/products/madu.png',
-    platform: 'Instagram',
-    status: 'Terposting',
-  },
-  {
-    id: 'c9',
-    createdAt: '2026-07-01T10:15:00+07:00',
-    title: 'Keripik Varian Keju',
-    description:
-      'Varian baru rasa keju gurih, dibuat dari singkong pilihan dengan taburan keju asli.',
-    image: '/products/keripik.png',
-    platform: 'Tokopedia',
-    status: 'Draft',
-  },
-]
-
-const SEED_TRANSACTIONS: TransactionItem[] = [
-  {
-    id: 't1',
-    createdAt: '2026-07-15T14:30:00+07:00',
-    product: 'Nusacid Anti Bakteri',
-    variant: 'Botol spray 500 ml',
-    image: '/products/nusacid.png',
-    total: 145_000,
-    method: 'Teks',
-    status: 'Tersimpan',
-    date: '15 Jul 2026',
-    time: '14.30',
-  },
-  {
-    id: 't2',
-    createdAt: '2026-07-14T19:12:00+07:00',
-    product: 'Kopi Arabika Gayo',
-    variant: 'Kemasan 250 g',
-    image: '/products/kopi.png',
-    total: 96_000,
-    method: 'Suara',
-    status: 'Perlu Verifikasi',
-    date: '14 Jul 2026',
-    time: '19.12',
-  },
-  {
-    id: 't3',
-    createdAt: '2026-07-14T10:05:00+07:00',
-    product: 'Keripik Singkong Renyah',
-    variant: 'Pouch 200 g',
-    image: '/products/keripik.png',
-    total: 54_000,
-    method: 'Teks',
-    status: 'Tersimpan',
-    date: '14 Jul 2026',
-    time: '10.05',
-  },
-  {
-    id: 't4',
-    createdAt: '2026-07-13T16:48:00+07:00',
-    product: 'Tas Anyaman Rotan',
-    variant: 'Handmade — ukuran M',
-    image: '/products/tas.png',
-    total: 320_000,
-    method: 'Suara',
-    status: 'Perlu Verifikasi',
-    date: '13 Jul 2026',
-    time: '16.48',
-  },
-  {
-    id: 't5',
-    createdAt: '2026-07-12T09:20:00+07:00',
-    product: 'Madu Hutan Murni',
-    variant: 'Botol kaca 350 ml',
-    image: '/products/madu.png',
-    total: 128_000,
-    method: 'Teks',
-    status: 'Tersimpan',
-    date: '12 Jul 2026',
-    time: '09.20',
-  },
-]
-
-/* ============================================================
-   Context
-   ============================================================ */
+export type { CatalogProduct, ContentItem, ContentStatus, Platform, TransactionItem, TxStatus }
+export { resolveProductImage, findCatalogProduct, defaultCatalogProduct }
 
 type DashboardStore = {
+  ready: boolean
+  loading: boolean
+  error: string | null
+  user: AuthUser | null
+  needsOnboarding: boolean
+  businessId: string | null
+  businesses: BusinessSummary[]
+  profile: BusinessProfile | null
+  catalog: CatalogProduct[]
   contents: ContentItem[]
   transactions: TransactionItem[]
-  addContents: (items: Omit<ContentItem, 'id' | 'createdAt'>[]) => void
-  updateContent: (id: string, patch: Partial<Omit<ContentItem, 'id'>>) => void
-  addTransaction: (tx: Omit<TransactionItem, 'id' | 'createdAt' | 'date' | 'time'>) => void
-  /* Modal control (dipakai lintas komponen: content-view, ai-assistant, dll.) */
+  refresh: () => Promise<void>
+  logout: () => Promise<void>
+  switchBusiness: (businessId: string) => Promise<void>
+  createBusiness: (input: CreateBusinessInput) => Promise<void>
+  addProduct: (input: {
+    name: string
+    shortName?: string
+    variant?: string
+    unitPrice: number
+    stock?: number
+    description?: string
+    sku?: string
+    image?: string
+  }) => Promise<CatalogProduct>
+  addContents: (items: Omit<ContentItem, 'id' | 'createdAt'>[]) => Promise<void>
+  updateContent: (id: string, patch: Partial<Omit<ContentItem, 'id'>>) => Promise<void>
+  addTransaction: (input: {
+    product?: string
+    productId?: string
+    qty: number
+    unitPrice?: number
+    status?: TxStatus
+  }) => Promise<TransactionItem>
+  updateTransaction: (
+    id: string,
+    action: 'verify' | 'reject',
+  ) => Promise<{ transaction: TransactionItem | null; removed?: boolean }>
+  updateProfile: (patch: Partial<BusinessProfile>) => Promise<BusinessProfile>
   contentModal: { open: boolean; editItem: ContentItem | null }
   transactionModalOpen: boolean
   openContentModal: (editItem?: ContentItem) => void
@@ -216,60 +76,326 @@ type DashboardStore = {
 
 const DashboardContext = createContext<DashboardStore | null>(null)
 
-let idCounter = 0
-function nextId(prefix: string) {
-  idCounter += 1
-  return `${prefix}-${Date.now()}-${idCounter}`
-}
-
-function nowStamp() {
-  const now = new Date()
-  const date = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-  const time = now
-    .toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-    .replace(':', '.')
-  return { createdAt: now.toISOString(), date, time }
+function bizHeaders(businessId: string | null): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (businessId) headers['x-business-id'] = businessId
+  return headers
 }
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [contents, setContents] = useState<ContentItem[]>(SEED_CONTENTS)
-  const [transactions, setTransactions] = useState<TransactionItem[]>(SEED_TRANSACTIONS)
-  const [contentModal, setContentModal] = useState<{ open: boolean; editItem: ContentItem | null }>(
-    { open: false, editItem: null },
-  )
+  const [ready, setReady] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
+  const [needsOnboarding, setNeedsOnboarding] = useState(false)
+  const [businessId, setBusinessId] = useState<string | null>(null)
+  const [businesses, setBusinesses] = useState<BusinessSummary[]>([])
+  const [profile, setProfile] = useState<BusinessProfile | null>(null)
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([])
+  const [contents, setContents] = useState<ContentItem[]>([])
+  const [transactions, setTransactions] = useState<TransactionItem[]>([])
+  const [contentModal, setContentModal] = useState<{ open: boolean; editItem: ContentItem | null }>({
+    open: false,
+    editItem: null,
+  })
   const [transactionModalOpen, setTransactionModalOpen] = useState(false)
 
-  const addContents = useCallback((items: Omit<ContentItem, 'id' | 'createdAt'>[]) => {
-    const createdAt = new Date().toISOString()
-    setContents((prev) => [...items.map((item) => ({ ...item, id: nextId('c'), createdAt })), ...prev])
+  const applySnapshot = useCallback((payload: {
+    id?: string
+    profile?: BusinessProfile
+    catalog?: CatalogProduct[]
+    contents?: ContentItem[]
+    transactions?: TransactionItem[]
+    needsOnboarding?: boolean
+    user?: AuthUser
+    businesses?: BusinessSummary[]
+  }) => {
+    if (payload.user) setUser(payload.user)
+    if (payload.needsOnboarding) {
+      setNeedsOnboarding(true)
+      setBusinessId(null)
+      setProfile(null)
+      setCatalog([])
+      setContents([])
+      setTransactions([])
+      setBusinesses([])
+      return
+    }
+    setNeedsOnboarding(false)
+    if (payload.id) setBusinessId(payload.id)
+    if (payload.profile) setProfile(payload.profile)
+    setCatalog(payload.catalog ?? [])
+    setContents(payload.contents ?? [])
+    setTransactions(payload.transactions ?? [])
+    if (payload.businesses) setBusinesses(payload.businesses)
   }, [])
 
-  const updateContent = useCallback((id: string, patch: Partial<Omit<ContentItem, 'id'>>) => {
-    setContents((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const bizRes = await fetch('/api/business', {
+        cache: 'no-store',
+        headers: bizHeaders(businessId),
+      })
+      if (bizRes.status === 401) {
+        window.location.href = '/login'
+        return
+      }
+      const payload = await bizRes.json()
+      if (!bizRes.ok) throw new Error(payload.error || 'Gagal memuat data usaha.')
+      applySnapshot(payload)
+      if (!payload.needsOnboarding && payload.businesses) {
+        setBusinesses(payload.businesses)
+      } else if (payload.needsOnboarding) {
+        const listRes = await fetch('/api/businesses', { cache: 'no-store' })
+        const listPayload = await listRes.json()
+        if (listRes.ok) setBusinesses(listPayload.businesses ?? [])
+      }
+      setReady(true)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Gagal memuat data usaha.')
+    } finally {
+      setLoading(false)
+    }
+  }, [applySnapshot, businessId])
+
+  const refresh = useCallback(async () => {
+    await loadAll()
+  }, [loadAll])
+
+  useEffect(() => {
+    void loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initial load only
   }, [])
 
-  const addTransaction = useCallback((tx: Omit<TransactionItem, 'id' | 'createdAt' | 'date' | 'time'>) => {
-    setTransactions((prev) => [{ ...tx, id: nextId('t'), ...nowStamp() }, ...prev])
+  const logout = useCallback(async () => {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.href = '/login'
   }, [])
+
+  const switchBusiness = useCallback(
+    async (id: string) => {
+      const response = await fetch('/api/businesses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: id }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal ganti usaha.')
+      applySnapshot(payload.business)
+      setBusinesses(payload.businesses ?? [])
+    },
+    [applySnapshot],
+  )
+
+  const createBusiness = useCallback(
+    async (input: CreateBusinessInput) => {
+      const response = await fetch('/api/businesses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal membuat usaha.')
+      setNeedsOnboarding(false)
+      applySnapshot({ ...payload.business, businesses: payload.businesses, needsOnboarding: false })
+      setBusinesses(payload.businesses ?? [])
+    },
+    [applySnapshot],
+  )
+
+  const addProduct = useCallback(
+    async (input: {
+      name: string
+      shortName?: string
+      variant?: string
+      unitPrice: number
+      stock?: number
+      description?: string
+      sku?: string
+      image?: string
+    }) => {
+      const response = await fetch('/api/catalog', {
+        method: 'POST',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify(input),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal menambah produk.')
+      const product = payload.product as CatalogProduct
+      setCatalog((prev) => [...prev, product])
+      setBusinesses((prev) =>
+        prev.map((b) =>
+          b.id === businessId
+            ? {
+                ...b,
+                productCount: b.productCount + 1,
+                stockTotal: b.stockTotal + (product.stock || 0),
+              }
+            : b,
+        ),
+      )
+      return product
+    },
+    [businessId],
+  )
+
+  const addContents = useCallback(
+    async (items: Omit<ContentItem, 'id' | 'createdAt'>[]) => {
+      const response = await fetch('/api/contents', {
+        method: 'POST',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ items }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal menyimpan konten.')
+      const created = payload.contents as ContentItem[]
+      setContents((prev) => [...created, ...prev])
+    },
+    [businessId],
+  )
+
+  const updateContent = useCallback(
+    async (id: string, patch: Partial<Omit<ContentItem, 'id'>>) => {
+      const response = await fetch('/api/contents', {
+        method: 'PATCH',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ id, ...patch }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal memperbarui konten.')
+      const content = payload.content as ContentItem
+      setContents((prev) => prev.map((item) => (item.id === id ? content : item)))
+    },
+    [businessId],
+  )
+
+  const addTransaction = useCallback(
+    async (input: {
+      product?: string
+      productId?: string
+      qty: number
+      unitPrice?: number
+      status?: TxStatus
+    }) => {
+      const response = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify(input),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal menyimpan transaksi.')
+      const transaction = payload.transaction as TransactionItem
+      const nextCatalog = payload.catalog as CatalogProduct[]
+      setTransactions((prev) => [transaction, ...prev])
+      setCatalog(nextCatalog)
+      setBusinesses((prev) =>
+        prev.map((b) =>
+          b.id === (payload.businessId || businessId)
+            ? { ...b, stockTotal: nextCatalog.reduce((s, p) => s + p.stock, 0) }
+            : b,
+        ),
+      )
+      return transaction
+    },
+    [businessId],
+  )
+
+  const updateTransaction = useCallback(
+    async (id: string, action: 'verify' | 'reject') => {
+      const response = await fetch('/api/transactions', {
+        method: 'PATCH',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ id, action }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal memperbarui transaksi.')
+      const nextCatalog = (payload.catalog as CatalogProduct[]) || []
+      if (nextCatalog.length) {
+        setCatalog(nextCatalog)
+        setBusinesses((prev) =>
+          prev.map((b) =>
+            b.id === (payload.businessId || businessId)
+              ? { ...b, stockTotal: nextCatalog.reduce((s, p) => s + p.stock, 0) }
+              : b,
+          ),
+        )
+      }
+      if (payload.removed) {
+        setTransactions((prev) => prev.filter((t) => t.id !== id))
+        return { transaction: null, removed: true as const }
+      }
+      const transaction = payload.transaction as TransactionItem
+      setTransactions((prev) => prev.map((t) => (t.id === transaction.id ? transaction : t)))
+      return { transaction, removed: false as const }
+    },
+    [businessId],
+  )
+
+  const updateProfile = useCallback(
+    async (patch: Partial<BusinessProfile>) => {
+      const response = await fetch('/api/business', {
+        method: 'PATCH',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ profile: patch }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Gagal menyimpan pengaturan.')
+      const next = payload.profile as BusinessProfile
+      setProfile(next)
+      if (patch.brand || patch.owner || patch.city || patch.category) {
+        setBusinesses((prev) =>
+          prev.map((b) =>
+            b.id === businessId
+              ? {
+                  ...b,
+                  brand: next.brand,
+                  owner: next.owner,
+                  city: next.city,
+                  category: next.category,
+                }
+              : b,
+          ),
+        )
+      }
+      return next
+    },
+    [businessId],
+  )
 
   const openContentModal = useCallback((editItem?: ContentItem) => {
     setContentModal({ open: true, editItem: editItem ?? null })
   }, [])
-
   const closeContentModal = useCallback(() => {
     setContentModal((prev) => ({ ...prev, open: false }))
   }, [])
-
   const openTransactionModal = useCallback(() => setTransactionModalOpen(true), [])
   const closeTransactionModal = useCallback(() => setTransactionModalOpen(false), [])
 
   const value = useMemo<DashboardStore>(
     () => ({
+      ready,
+      loading,
+      error,
+      user,
+      needsOnboarding,
+      businessId,
+      businesses,
+      profile,
+      catalog,
       contents,
       transactions,
+      refresh,
+      logout,
+      switchBusiness,
+      createBusiness,
+      addProduct,
       addContents,
       updateContent,
       addTransaction,
+      updateTransaction,
+      updateProfile,
       contentModal,
       transactionModalOpen,
       openContentModal,
@@ -278,11 +404,27 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       closeTransactionModal,
     }),
     [
+      ready,
+      loading,
+      error,
+      user,
+      needsOnboarding,
+      businessId,
+      businesses,
+      profile,
+      catalog,
       contents,
       transactions,
+      refresh,
+      logout,
+      switchBusiness,
+      createBusiness,
+      addProduct,
       addContents,
       updateContent,
       addTransaction,
+      updateTransaction,
+      updateProfile,
       contentModal,
       transactionModalOpen,
       openContentModal,

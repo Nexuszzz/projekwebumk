@@ -15,3 +15,20 @@ node_modules
 .DS_Store
 # Unrelated reference repo
 gemini-web2api/
+
+# Runtime business DB (di-generate dari data/seed.json)
+data/business-db.json
+data/users.json
+data/*.tmp
+
+# Generated media (posters, uploads) — keep folder via .gitkeep
+public/uploads/**
+!public/uploads/.gitkeep
+
+# private media storage
+/storage/uploads/**
+!/storage/.gitkeep
+
+
+*.tsbuildinfo
+

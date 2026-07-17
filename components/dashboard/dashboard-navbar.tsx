@@ -1,19 +1,15 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, CheckCheck, FileText, Mic, Moon, PackageSearch, Plus, Settings, Store, Sun, Zap } from 'lucide-react'
+import { Bell, CheckCheck, FileText, LogOut, Moon, PackageSearch, Plus, Receipt, Settings, Store, Sun, Zap } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
-import { useEffect, useRef, useState } from 'react'
+import { useDashboard } from '@/lib/dashboard-store'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BusinessSwitcher } from './business-switcher'
 import { InstagramIcon } from './brand-icons'
 
 const TABS = ['Ringkasan', 'Konten', 'Transaksi', 'Riwayat'] as const
 export type DashboardTab = (typeof TABS)[number] | 'Pengaturan'
-
-const NOTIFICATIONS: { id: string; title: string; detail: string; time: string; tab: DashboardTab; icon: typeof Bell }[] = [
-  { id: 'draft', title: '2 draft siap diposting', detail: 'Konten Tokopedia menunggu review kamu.', time: '5 mnt', tab: 'Konten', icon: FileText },
-  { id: 'verify', title: 'Transaksi perlu verifikasi', detail: 'Input suara Kopi Arabika Gayo perlu dicek.', time: '32 mnt', tab: 'Transaksi', icon: Mic },
-  { id: 'stock', title: 'Stok Nusacid menipis', detail: 'Prediksi stok habis dalam 4 hari.', time: '2 jam', tab: 'Ringkasan', icon: PackageSearch },
-]
 
 function IntegrationDot({
   label,
@@ -85,10 +81,66 @@ export function DashboardNavbar({
   activeTab: DashboardTab
   onTabChange: (tab: DashboardTab) => void
 }) {
+  const { catalog, contents, transactions, profile, logout, user } = useDashboard()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [read, setRead] = useState<Set<string>>(new Set())
   const notificationRef = useRef<HTMLDivElement>(null)
-  const unreadCount = NOTIFICATIONS.filter((notification) => !read.has(notification.id)).length
+
+  const notifications = useMemo(() => {
+    const prefs = profile?.notifications
+    const showDraft = prefs?.ai !== false
+    const showOrders = prefs?.orders !== false
+    const showStock = prefs?.stock !== false
+    const showOk = prefs?.weekly !== false
+
+    const draftCount = contents.filter((c) => c.status === 'Draft').length
+    const verifyCount = transactions.filter((t) => t.status === 'Perlu Verifikasi').length
+    const lowStock = catalog.filter((p) => p.stock <= p.lowStockAt)
+    const items: { id: string; title: string; detail: string; time: string; tab: DashboardTab; icon: typeof Bell }[] = []
+    if (showDraft && draftCount > 0) {
+      items.push({
+        id: 'draft',
+        title: `${draftCount} draft siap ditandai terposting`,
+        detail: 'Status lokal di UMKMan (belum publish ke marketplace).',
+        time: 'baru',
+        tab: 'Konten',
+        icon: FileText,
+      })
+    }
+    if (showOrders && verifyCount > 0) {
+      items.push({
+        id: 'verify',
+        title: 'Transaksi perlu verifikasi',
+        detail: `${verifyCount} transaksi di ${profile?.brand ?? 'usaha'} — stok belum dipotong.`,
+        time: 'baru',
+        tab: 'Transaksi',
+        icon: Receipt,
+      })
+    }
+    if (showStock && lowStock.length > 0) {
+      items.push({
+        id: 'stock',
+        title: 'Stok menipis',
+        detail: lowStock.map((p) => `${p.shortName} (${p.stock})`).join(', '),
+        time: 'live',
+        tab: 'Ringkasan',
+        icon: PackageSearch,
+      })
+    }
+    if (items.length === 0 && showOk) {
+      items.push({
+        id: 'ok',
+        title: 'Semua aman',
+        detail: `${profile?.brand ?? 'Usaha'} siap dioperasikan.`,
+        time: '—',
+        tab: 'Ringkasan',
+        icon: CheckCheck,
+      })
+    }
+    return items
+  }, [catalog, contents, transactions, profile])
+
+  const unreadCount = notifications.filter((notification) => !read.has(notification.id)).length
 
   useEffect(() => {
     function closeOnOutsideClick(event: MouseEvent) {
@@ -105,7 +157,7 @@ export function DashboardNavbar({
     }
   }, [])
 
-  function openNotification(notification: (typeof NOTIFICATIONS)[number]) {
+  function openNotification(notification: (typeof notifications)[number]) {
     setRead((current) => new Set(current).add(notification.id))
     setNotificationsOpen(false)
     onTabChange(notification.tab)
@@ -113,14 +165,16 @@ export function DashboardNavbar({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
-      {/* Left: logo + integrations */}
-      <div className="flex items-center gap-4">
+      {/* Left: logo + business switcher + integrations */}
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
         <a href="/" className="flex items-center gap-2">
           <span className="flex size-8 items-center justify-center rounded-lg bg-accent">
             <Zap className="size-4 text-accent-foreground" aria-hidden="true" />
           </span>
           <span className="font-display text-lg font-bold tracking-tight">UMKMan</span>
         </a>
+
+        <BusinessSwitcher />
 
         <div className="flex items-center">
           <div className="flex -space-x-1.5">
@@ -177,7 +231,21 @@ export function DashboardNavbar({
 
       {/* Right: actions */}
       <div className="flex items-center gap-2">
+        {user && (
+          <span className="hidden max-w-[8rem] truncate text-xs text-muted-foreground sm:inline" title={user.email}>
+            {user.email}
+          </span>
+        )}
         <ThemeToggle />
+        <button
+          type="button"
+          aria-label="Keluar"
+          onClick={() => void logout()}
+          title="Keluar"
+          className="flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        >
+          <LogOut className="size-4" aria-hidden="true" />
+        </button>
         <button
           type="button"
           aria-label="Pengaturan"
@@ -219,10 +287,10 @@ export function DashboardNavbar({
               >
                 <div className="flex items-center justify-between border-b border-border px-4 py-3">
                   <div><h2 className="font-display text-sm font-bold">Notifikasi</h2><p className="text-xs text-muted-foreground">{unreadCount ? `${unreadCount} belum dibaca` : 'Semua sudah dibaca'}</p></div>
-                  {unreadCount > 0 && <button type="button" onClick={() => setRead(new Set(NOTIFICATIONS.map((notification) => notification.id)))} className="flex min-h-9 items-center gap-1 text-xs font-semibold text-accent hover:underline"><CheckCheck className="size-3.5" aria-hidden="true" />Tandai semua</button>}
+                  {unreadCount > 0 && <button type="button" onClick={() => setRead(new Set(notifications.map((notification) => notification.id)))} className="flex min-h-9 items-center gap-1 text-xs font-semibold text-accent hover:underline"><CheckCheck className="size-3.5" aria-hidden="true" />Tandai semua</button>}
                 </div>
                 <ul className="max-h-[min(60dvh,24rem)] overflow-y-auto p-1.5">
-                  {NOTIFICATIONS.map((notification) => {
+                  {notifications.map((notification) => {
                     const Icon = notification.icon
                     const unread = !read.has(notification.id)
                     return <li key={notification.id}><button type="button" onClick={() => openNotification(notification)} className={`flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors hover:bg-secondary ${unread ? 'bg-accent/[0.05]' : ''}`}>

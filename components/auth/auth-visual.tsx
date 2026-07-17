@@ -103,13 +103,13 @@ export function AuthVisual() {
 
               <div className="rounded-xl rounded-tl-sm bg-[#1b2316] p-3">
                 <p className="text-[11px] leading-relaxed text-[#9ba394]">
-                  Foto kopi susu kamu sudah dianalisis. Ini caption siap posting:
+                  Foto produk NUSACID kamu sudah dianalisis. Ini caption siap posting:
                 </p>
               </div>
 
               <div className="rounded-xl rounded-tl-sm border border-[#d6ff4a]/25 bg-[#151b12] p-3">
                 <p className="text-[11px] leading-relaxed text-[#f3f6ec]">
-                  {'"Es Kopi Susu Senja — gula aren asli, susu segar. Cuma 15rb, '}
+                  {'"NUSACID Pembersih Kerak 1000 ml — hilangkan kerak kamar mandi dengan cepat. '}
                   <span className="text-[#d6ff4a]">order sekarang!</span>
                   {'"'}
                 </p>

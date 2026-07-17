@@ -1,8 +1,10 @@
 'use client'
 
 import { Stagger, StaggerItem } from '@/components/motion'
-import { ChevronRight, FileText, Mic, PackageSearch } from 'lucide-react'
+import { useDashboard } from '@/lib/dashboard-store'
+import { ChevronRight, FileText, PackageSearch, Receipt } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useMemo } from 'react'
 import type { DashboardTab } from './dashboard-navbar'
 
 type Task = {
@@ -14,32 +16,58 @@ type Task = {
   tab: DashboardTab
 }
 
-const TASKS: Task[] = [
-  {
-    icon: FileText,
-    title: 'Draft Konten Belum Diposting',
-    meta: '2 draft siap',
-    description: '2 caption siap, belum dipublikasikan ke Tokopedia.',
-    highlighted: true,
-    tab: 'Konten',
-  },
-  {
-    icon: Mic,
-    title: 'Transaksi Belum Diverifikasi',
-    meta: '3 menunggu',
-    description: '3 transaksi hasil input suara perlu dicek ulang.',
-    tab: 'Transaksi',
-  },
-  {
-    icon: PackageSearch,
-    title: 'Rekomendasi Restock',
-    meta: 'Prediksi AI',
-    description: 'Nusacid Anti Bakteri diprediksi habis dalam 4 hari berdasarkan tren transaksi.',
-    tab: 'Ringkasan',
-  },
-]
-
 export function PriorityTasks({ onNavigate }: { onNavigate: (tab: DashboardTab) => void }) {
+  const { contents, transactions, catalog, profile } = useDashboard()
+
+  const tasks = useMemo(() => {
+    const draftCount = contents.filter((c) => c.status === 'Draft').length
+    const verifyCount = transactions.filter((t) => t.status === 'Perlu Verifikasi').length
+    const low = catalog.filter((p) => p.stock <= p.lowStockAt)
+    const list: Task[] = []
+    if (draftCount > 0) {
+      list.push({
+        icon: FileText,
+        title: 'Draft Konten Belum Diposting',
+        meta: `${draftCount} draft`,
+        description: `${draftCount} caption di ${profile?.brand ?? 'usaha'} siap direview.`,
+        highlighted: true,
+        tab: 'Konten',
+      })
+    }
+    if (verifyCount > 0) {
+      list.push({
+        icon: Receipt,
+        title: 'Transaksi Belum Diverifikasi',
+        meta: `${verifyCount} menunggu`,
+        description: `${verifyCount} transaksi perlu dicek ulang.`,
+        tab: 'Transaksi',
+      })
+    }
+    if (low.length > 0) {
+      list.push({
+        icon: PackageSearch,
+        title: 'Rekomendasi Restock',
+        meta: `${low.length} SKU`,
+        description: low.map((p) => `${p.shortName} sisa ${p.stock}`).join(' · '),
+        tab: 'Ringkasan',
+      })
+    }
+    if (list.length === 0) {
+      list.push({
+        icon: PackageSearch,
+        title: catalog.length === 0 ? 'Tambah produk pertama' : 'Tidak ada tugas mendesak',
+        meta: profile?.brand ?? 'Usaha',
+        description:
+          catalog.length === 0
+            ? 'Usaha baru: tambah produk di Pengaturan, lalu catat transaksi.'
+            : 'Stok dan konten terlihat aman. Lanjut jualan!',
+        highlighted: catalog.length === 0,
+        tab: catalog.length === 0 ? 'Pengaturan' : 'Ringkasan',
+      })
+    }
+    return list
+  }, [contents, transactions, catalog, profile])
+
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-background/50 p-5">
       <div className="flex items-center justify-between">
@@ -50,7 +78,7 @@ export function PriorityTasks({ onNavigate }: { onNavigate: (tab: DashboardTab) 
       </div>
 
       <Stagger className="flex flex-col gap-2">
-        {TASKS.map((task) => (
+        {tasks.map((task) => (
           <StaggerItem key={task.title}>
             <button
               type="button"

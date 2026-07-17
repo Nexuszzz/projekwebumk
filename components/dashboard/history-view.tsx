@@ -11,8 +11,6 @@ import {
   Clock,
   Columns3,
   Copy,
-  Keyboard,
-  Mic,
   Pencil,
   Receipt,
   RefreshCw,
@@ -27,13 +25,14 @@ import {
 import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import { InstagramIcon } from './brand-icons'
-import { useDashboard, type ContentItem, type Platform, type TransactionItem, type TxMethod } from '@/lib/dashboard-store'
+import { useDashboard, type ContentItem, type Platform, type TransactionItem } from '@/lib/dashboard-store'
 import { formatRupiah } from '@/lib/utils'
 
 /* ================= Types & data ================= */
 
 type Kind = 'konten' | 'transaksi'
-type Status = 'selesai' | 'menunggu' | 'gagal'
+/** draft = konten Draft (dot abu); menunggu = transaksi Perlu Verifikasi (jam oranye) */
+type Status = 'selesai' | 'draft' | 'menunggu' | 'gagal'
 
 type HistoryRow = {
   id: string
@@ -51,7 +50,6 @@ type HistoryRow = {
   status: Status
   statusNote: string
   fullText: string
-  inputMethod?: TxMethod
 }
 
 function mapStoreRows(contents: ContentItem[], transactions: TransactionItem[]): HistoryRow[] {
@@ -63,8 +61,10 @@ function mapStoreRows(contents: ContentItem[], transactions: TransactionItem[]):
       fullDate: date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
       time: date.toLocaleTimeString('id-ID'), product: item.title, image: item.image,
       type: item.platform === 'Instagram' ? 'Caption Instagram' : `Deskripsi ${item.platform}`,
-      platform: item.platform, value: null, status: item.status === 'Terposting' ? 'selesai' : 'menunggu',
-      statusNote: item.status === 'Terposting' ? 'Dipublikasikan' : 'Draft — menunggu review kamu', fullText: item.description,
+      platform: item.platform, value: null,
+      status: item.status === 'Terposting' ? 'selesai' : 'draft',
+      statusNote: item.status === 'Terposting' ? 'Dipublikasikan' : 'Draft — menunggu review kamu',
+      fullText: item.description,
     }
   })
   const transactionRows: HistoryRow[] = transactions.map((item) => {
@@ -74,176 +74,50 @@ function mapStoreRows(contents: ContentItem[], transactions: TransactionItem[]):
       date: `${date.getDate()} ${date.toLocaleDateString('id-ID', { month: 'short' })}`,
       fullDate: date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
       time: date.toLocaleTimeString('id-ID'), product: item.product, image: item.image, type: 'Transaksi',
-      platform: 'Transaksi', value: item.total, status: item.status === 'Tersimpan' ? 'selesai' : 'menunggu',
+      platform: 'Transaksi', value: item.total,
+      status: item.status === 'Tersimpan' ? 'selesai' : 'menunggu',
       statusNote: item.status === 'Tersimpan' ? 'Terverifikasi' : 'Menunggu verifikasi kamu',
-      fullText: `${item.product} — ${item.variant}`, inputMethod: item.method,
+      fullText: `${item.product} — ${item.variant}`,
     }
   })
   return [...contentRows, ...transactionRows].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
 }
 
-/*
-  {
-    id: 'h1',
-    kind: 'transaksi',
-    direction: 'in',
-    date: '15 Jul',
-    fullDate: '15 Juli 2026',
-    time: '14:32:08',
-    product: 'Kopi Arabika Gayo',
-    image: '/products/kopi.png',
-    type: 'Transaksi',
-    platform: 'transaksi',
-    value: 192000,
-    status: 'menunggu',
-    statusNote: 'Menunggu verifikasi kamu',
-    fullText: 'Terjual 2 pack Kopi Arabika Gayo 250 g ke pelanggan tetap, dibayar tunai.',
-    inputMethod: 'Suara',
-  },
-  {
-    id: 'h2',
-    kind: 'konten',
-    direction: 'in',
-    date: '15 Jul',
-    fullDate: '15 Juli 2026',
-    time: '11:05:41',
-    product: 'Nusacid Anti Bakteri',
-    image: '/products/nusacid.png',
-    type: 'Caption Instagram',
-    platform: 'instagram',
-    value: null,
-    status: 'selesai',
-    statusNote: 'Dipublikasikan 3 jam lalu',
-    fullText:
-      'Kulit sehat dimulai dari kebersihan! Nusacid Anti Bakteri hadir dengan bahan alami khas Nusantara yang lembut di kulit tapi ampuh melawan kuman. Wanginya segar tahan lama, cocok untuk seluruh keluarga. Yuk stok sekarang sebelum kehabisan — cek link di bio! #NusacidBersih #SabunAlami #UMKMLokal',
-  },
-  {
-    id: 'h3',
-    kind: 'transaksi',
-    direction: 'in',
-    date: '14 Jul',
-    fullDate: '14 Juli 2026',
-    time: '16:48:22',
-    product: 'Keripik Singkong Renyah',
-    image: '/products/keripik.png',
-    type: 'Transaksi',
-    platform: 'transaksi',
-    value: 135000,
-    status: 'selesai',
-    statusNote: 'Terverifikasi otomatis',
-    fullText: 'Pesanan 9 pouch Keripik Singkong Renyah balado via Tokopedia, sudah dikirim.',
-    inputMethod: 'Teks',
-  },
-  {
-    id: 'h4',
-    kind: 'konten',
-    direction: 'in',
-    date: '14 Jul',
-    fullDate: '14 Juli 2026',
-    time: '09:21:37',
-    product: 'Keripik Singkong Renyah',
-    image: '/products/keripik.png',
-    type: 'Deskripsi Tokopedia',
-    platform: 'tokopedia',
-    value: null,
-    status: 'selesai',
-    statusNote: 'Terpasang di etalase toko',
-    fullText:
-      'Keripik Singkong Renyah — camilan legendaris dengan bumbu balado pedas manis yang meresap sempurna. Dibuat dari singkong pilihan yang diiris tipis dan digoreng dengan minyak baru, menghasilkan tekstur ekstra renyah di setiap gigitan. Kemasan pouch 200 g kedap udara menjaga kerenyahan hingga 3 bulan. Cocok untuk teman nonton, oleh-oleh, maupun stok jajanan di rumah.',
-  },
-  {
-    id: 'h5',
-    kind: 'konten',
-    direction: 'out',
-    date: '13 Jul',
-    fullDate: '13 Juli 2026',
-    time: '19:54:10',
-    product: 'Madu Hutan Murni',
-    image: '/products/madu.png',
-    type: 'Caption Instagram',
-    platform: 'instagram',
-    value: null,
-    status: 'gagal',
-    statusNote: 'Gagal terposting — koneksi Instagram terputus',
-    fullText:
-      'Manisnya alami, khasiatnya nyata. Madu Hutan Murni dipanen langsung dari lebah liar di pedalaman Sumatera tanpa campuran apa pun. Satu sendok setiap pagi untuk daya tahan tubuh keluarga. Order sekarang, stok panen bulan ini terbatas! #MaduHutan #MaduMurni #SehatAlami',
-  },
-  {
-    id: 'h6',
-    kind: 'transaksi',
-    direction: 'out',
-    date: '13 Jul',
-    fullDate: '13 Juli 2026',
-    time: '13:17:55',
-    product: 'Tas Anyaman Rotan',
-    image: '/products/tas.png',
-    type: 'Transaksi',
-    platform: 'transaksi',
-    value: -85000,
-    status: 'selesai',
-    statusNote: 'Refund pesanan diproses',
-    fullText: 'Refund 1 pcs Tas Anyaman Rotan karena pembeli membatalkan pesanan sebelum kirim.',
-    inputMethod: 'Teks',
-  },
-  {
-    id: 'h7',
-    kind: 'transaksi',
-    direction: 'in',
-    date: '12 Jul',
-    fullDate: '12 Juli 2026',
-    time: '10:02:19',
-    product: 'Nusacid Anti Bakteri',
-    image: '/products/nusacid.png',
-    type: 'Transaksi',
-    platform: 'transaksi',
-    value: 240000,
-    status: 'selesai',
-    statusNote: 'Terverifikasi otomatis',
-    fullText: 'Penjualan grosir 12 botol Nusacid Anti Bakteri 500 ml ke warung langganan.',
-    inputMethod: 'Suara',
-  },
-  {
-    id: 'h8',
-    kind: 'konten',
-    direction: 'in',
-    date: '11 Jul',
-    fullDate: '11 Juli 2026',
-    time: '08:44:03',
-    product: 'Kopi Arabika Gayo',
-    image: '/products/kopi.png',
-    type: 'Deskripsi Tokopedia',
-    platform: 'tokopedia',
-    value: null,
-    status: 'menunggu',
-    statusNote: 'Draft — menunggu review kamu',
-    fullText:
-      'Kopi Arabika Gayo single origin dari dataran tinggi Aceh, dipetik merah dan diproses semi-washed untuk menjaga karakter aslinya. Aroma floral dengan aftertaste karamel yang khas, cocok untuk seduhan manual brew maupun espresso. Roasting medium, dikemas dalam standing pouch 250 g dengan one-way valve agar kesegaran terjaga.',
-  },
-]
-*/
 /* ================= Helpers ================= */
 
 const STATUS_META: Record<
   Status,
-  { label: string; icon: typeof CheckCircle2; className: string; badge: string }
+  { label: string; icon: typeof CheckCircle2 | null; className: string; badge: string; shape: 'icon' | 'dot' }
 > = {
   selesai: {
     label: 'Selesai',
     icon: CheckCircle2,
     className: 'text-accent',
     badge: 'border-accent/30 bg-accent/10 text-accent',
+    shape: 'icon',
   },
+  /** Konten Draft — titik solid abu-abu (bentuk beda dari jam verifikasi). */
+  draft: {
+    label: 'Draft',
+    icon: null,
+    className: 'text-muted-foreground',
+    badge: 'border-border bg-secondary text-muted-foreground',
+    shape: 'dot',
+  },
+  /** Transaksi Perlu Verifikasi — jam accent-warm. */
   menunggu: {
-    label: 'Menunggu',
+    label: 'Perlu Verifikasi',
     icon: Clock,
     className: 'text-accent-warm',
     badge: 'border-accent-warm/40 bg-accent-warm/10 text-accent-warm',
+    shape: 'icon',
   },
   gagal: {
     label: 'Gagal',
     icon: XCircle,
     className: 'text-destructive',
     badge: 'border-destructive/40 bg-destructive/10 text-destructive',
+    shape: 'icon',
   },
 }
 
@@ -282,10 +156,14 @@ function StatusDot({ status, delay = 0 }: { status: Status; delay?: number }) {
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 20, delay }}
-      className={`flex ${meta.className}`}
+      className={`flex items-center justify-center ${meta.className}`}
       title={meta.label}
     >
-      <Icon className="size-4.5" aria-hidden="true" />
+      {meta.shape === 'dot' || !Icon ? (
+        <span className="size-2.5 rounded-full bg-muted-foreground" aria-hidden="true" />
+      ) : (
+        <Icon className="size-4.5" aria-hidden="true" />
+      )}
       <span className="sr-only">{meta.label}</span>
     </motion.span>
   )
@@ -429,7 +307,11 @@ function DetailContent({ row, onClose }: { row: HistoryRow; onClose: () => void 
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${status.badge}`}
           >
-            <StatusIcon className="size-3.5" aria-hidden="true" />
+            {status.shape === 'dot' || !StatusIcon ? (
+              <span className="size-2 rounded-full bg-muted-foreground" aria-hidden="true" />
+            ) : (
+              <StatusIcon className="size-3.5" aria-hidden="true" />
+            )}
             {status.label}
           </span>
           <span className="text-xs text-muted-foreground">{row.statusNote}</span>
@@ -475,20 +357,9 @@ function DetailContent({ row, onClose }: { row: HistoryRow; onClose: () => void 
         </motion.div>
       )}
 
-      {/* Transaksi: input method + catatan + verifikasi */}
+      {/* Transaksi: catatan + verifikasi */}
       {row.kind === 'transaksi' && (
         <motion.div variants={sectionItem} className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Metode Input</p>
-            <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-medium text-secondary-foreground">
-              {row.inputMethod === 'Suara' ? (
-                <Mic className="size-3" aria-hidden="true" />
-              ) : (
-                <Keyboard className="size-3" aria-hidden="true" />
-              )}
-              {row.inputMethod}
-            </span>
-          </div>
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium text-muted-foreground">Catatan Transaksi</p>
             <div className="rounded-xl border border-border bg-background/50 p-4">
@@ -556,7 +427,8 @@ type KindFilter = (typeof KIND_FILTERS)[number]['key']
 const STATUS_FILTERS = [
   { key: 'semua', label: 'Semua Status' },
   { key: 'selesai', label: 'Selesai' },
-  { key: 'menunggu', label: 'Menunggu' },
+  { key: 'draft', label: 'Draft' },
+  { key: 'menunggu', label: 'Perlu Verifikasi' },
   { key: 'gagal', label: 'Gagal' },
 ] as const
 type StatusFilter = (typeof STATUS_FILTERS)[number]['key']

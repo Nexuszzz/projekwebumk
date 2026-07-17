@@ -147,7 +147,7 @@ function ContentCard({
               className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-bold text-accent-foreground transition-all duration-150 animate-glow-pulse-subtle hover:opacity-90 active:scale-[0.97]"
             >
               <Send className="size-3" aria-hidden="true" />
-              Posting
+              Tandai terposting
             </button>
           ) : (
             <button
