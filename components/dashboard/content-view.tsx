@@ -7,6 +7,7 @@ import { Check, Pencil, RefreshCw, Send, Sparkles, Store } from 'lucide-react'
 import Image from 'next/image'
 import { useState } from 'react'
 import { InstagramIcon } from './brand-icons'
+import { InstagramPostModal } from './instagram-post-modal'
 
 type Status = ContentStatus
 
@@ -84,11 +85,13 @@ function ContentCard({
   index,
   onEdit,
   onPost,
+  onInstagram,
 }: {
   item: ContentItem
   index: number
   onEdit: (item: ContentItem) => void
   onPost: (item: ContentItem) => void
+  onInstagram: (item: ContentItem) => void
 }) {
   return (
     <motion.article
@@ -103,11 +106,11 @@ function ContentCard({
         layout: { duration: 0.3, delay: 0 },
       }}
       whileHover={{ y: -4 }}
-      className="group flex flex-col gap-4 rounded-2xl border border-border bg-background/50 p-4 transition-[border-color,box-shadow] duration-300 hover:border-accent/40 hover:shadow-[0_0_24px_-4px_color-mix(in_oklch,var(--accent)_30%,transparent)]"
+      className="group flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-background/50 p-3.5 transition-[border-color,box-shadow] duration-300 hover:border-accent/40 hover:shadow-[0_0_24px_-4px_color-mix(in_oklch,var(--accent)_30%,transparent)] sm:gap-4 sm:p-4"
     >
-      <div className="flex gap-4">
+      <div className="flex gap-3 sm:gap-4">
         {/* Product photo with sheen + zoom */}
-        <div className="sheen-sweep size-24 shrink-0 rounded-xl border border-border">
+        <div className="sheen-sweep size-20 shrink-0 rounded-xl border border-border sm:size-24">
           <Image
             src={item.image || '/placeholder.svg'}
             alt={item.title}
@@ -118,7 +121,7 @@ function ContentCard({
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
-          <h3 className="font-display text-base font-bold tracking-tight text-balance">
+          <h3 className="font-display text-sm font-bold tracking-tight text-balance sm:text-base">
             {item.title}
           </h3>
           <PlatformBadge platform={item.platform} />
@@ -128,32 +131,42 @@ function ContentCard({
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusBadge status={item.status} />
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={() => onEdit(item)}
-            className="flex items-center gap-1.5 rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 hover:border-accent/40 hover:bg-secondary active:scale-[0.97]"
+            className="flex min-h-9 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-foreground transition-all duration-150 hover:border-accent/40 hover:bg-secondary active:scale-[0.97] sm:px-3.5"
           >
             <Pencil className="size-3" aria-hidden="true" />
             Edit
+          </button>
+          <button
+            type="button"
+            onClick={() => onInstagram(item)}
+            className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#E1306C]/40 bg-[#E1306C]/10 px-3 py-1.5 text-xs font-bold text-[#E1306C] transition-all duration-150 hover:bg-[#E1306C]/15 active:scale-[0.97] sm:px-3.5"
+          >
+            <InstagramIcon className="size-3" />
+            <span className="sm:hidden">IG</span>
+            <span className="hidden sm:inline">Post ke IG</span>
           </button>
           {item.status === 'Draft' ? (
             <button
               type="button"
               onClick={() => onPost(item)}
-              className="flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 text-xs font-bold text-accent-foreground transition-all duration-150 animate-glow-pulse-subtle hover:opacity-90 active:scale-[0.97]"
+              className="flex min-h-9 items-center gap-1.5 rounded-full bg-accent px-3 py-1.5 text-xs font-bold text-accent-foreground transition-all duration-150 animate-glow-pulse-subtle hover:opacity-90 active:scale-[0.97] sm:px-3.5"
             >
               <Send className="size-3" aria-hidden="true" />
-              Tandai terposting
+              <span className="sm:hidden">Posting</span>
+              <span className="hidden sm:inline">Tandai terposting</span>
             </button>
           ) : (
             <button
               type="button"
               onClick={() => onEdit(item)}
-              className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3.5 py-1.5 text-xs font-bold text-accent transition-all duration-150 hover:bg-accent/20 active:scale-[0.97]"
+              className="flex min-h-9 items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent transition-all duration-150 hover:bg-accent/20 active:scale-[0.97] sm:px-3.5"
             >
               <RefreshCw className="size-3" aria-hidden="true" />
               Buat Ulang
@@ -168,6 +181,7 @@ function ContentCard({
 export function ContentView() {
   const { contents, openContentModal, updateContent } = useDashboard()
   const [filter, setFilter] = useState<FilterKey>('semua')
+  const [igItem, setIgItem] = useState<ContentItem | null>(null)
   const items =
     filter === 'semua'
       ? contents
@@ -182,17 +196,18 @@ export function ContentView() {
       />
 
       {/* Header */}
-      <div className="relative flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+      <div className="relative flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <h2 className="font-display text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
           Semua Konten
         </h2>
         <button
           type="button"
           onClick={() => openContentModal()}
-          className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97]"
+          className="flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97] sm:px-5"
         >
           <Sparkles className="size-4 animate-sparkle-sway" aria-hidden="true" />
-          Buat Konten Baru
+          <span className="sm:hidden">Buat</span>
+          <span className="hidden sm:inline">Buat Konten Baru</span>
         </button>
       </div>
 
@@ -236,6 +251,7 @@ export function ContentView() {
               index={index}
               onEdit={openContentModal}
               onPost={(content) => updateContent(content.id, { status: 'Terposting' })}
+              onInstagram={setIgItem}
             />
           ))}
         </AnimatePresence>
@@ -247,6 +263,12 @@ export function ContentView() {
           <button type="button" onClick={() => openContentModal()} className="min-h-11 rounded-full bg-accent px-5 text-sm font-bold text-accent-foreground">Buat Konten</button>
         </div>
       )}
+
+      <InstagramPostModal
+        item={igItem}
+        isOpen={Boolean(igItem)}
+        onClose={() => setIgItem(null)}
+      />
     </section>
   )
 }

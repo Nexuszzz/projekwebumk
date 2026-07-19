@@ -216,6 +216,49 @@ export async function deleteUserAccount(userId: string) {
   await prisma.user.delete({ where: { id: userId } })
 }
 
+/**
+ * Pastikan baris User ada di Postgres.
+ * Session JWT lama (sebelum DATABASE_URL) bisa punya id yang belum di tabel users
+ * → createBusiness gagal FK businesses_ownerUserId_fkey.
+ */
+export async function ensureUserFromAuth(user: AuthUser): Promise<AuthUser> {
+  const prisma = getPrisma()
+  const byId = await prisma.user.findUnique({ where: { id: user.id } })
+  if (byId) return toAuthUser(byId)
+
+  const email = (user.email || '').trim().toLowerCase()
+  if (email) {
+    const byEmail = await prisma.user.findUnique({ where: { email } })
+    if (byEmail) return toAuthUser(byEmail)
+  }
+
+  if (!email || !email.includes('@')) {
+    throw new Error('Sesi tidak valid. Logout lalu login lagi.')
+  }
+
+  try {
+    const created = await prisma.user.create({
+      data: {
+        id: user.id,
+        email,
+        name: user.name || email.split('@')[0],
+        picture: user.picture ?? null,
+        passwordHash: null,
+        sessionVersion: 0,
+        sessions: [],
+      },
+    })
+    return toAuthUser(created)
+  } catch (error) {
+    // Race: user barusan dibuat
+    const again =
+      (await prisma.user.findUnique({ where: { id: user.id } })) ||
+      (await prisma.user.findUnique({ where: { email } }))
+    if (again) return toAuthUser(again)
+    throw error
+  }
+}
+
 export async function upsertGoogleUser(input: {
   googleId: string
   email: string

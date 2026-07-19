@@ -102,9 +102,9 @@ export function FloatingCards() {
             </span>
             <div>
               <p className="text-sm font-medium text-foreground">
-                NUSACID 1000 ml
+                Produk unggulan
               </p>
-              <p className="text-xs text-muted-foreground">Pembersih kerak · Sidoarjo</p>
+              <p className="text-xs text-muted-foreground">Katalog toko · stok live</p>
             </div>
           </div>
           <p className="mt-4 font-mono text-2xl font-bold text-foreground">

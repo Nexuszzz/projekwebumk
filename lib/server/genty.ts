@@ -7,6 +7,7 @@
  */
 
 import { getPosterStyleKeywords, normalizeAiTone } from '@/lib/ai-style'
+import { envTrim } from '@/lib/server/auth'
 
 const DEFAULT_BASE = 'https://api.genityboost.site'
 
@@ -23,8 +24,8 @@ export type GeneratePosterInput = {
 }
 
 function getConfig() {
-  const apiKey = process.env.GENTY_API_KEY || process.env.GENITY_API_KEY
-  const baseUrl = (process.env.GENTY_BASE_URL || process.env.GENITY_BASE_URL || DEFAULT_BASE).replace(
+  const apiKey = envTrim('GENTY_API_KEY') || envTrim('GENITY_API_KEY')
+  const baseUrl = (envTrim('GENTY_BASE_URL') || envTrim('GENITY_BASE_URL') || DEFAULT_BASE).replace(
     /\/$/,
     '',
   )
@@ -35,7 +36,7 @@ function getConfig() {
 }
 
 export function gentyConfigured() {
-  return Boolean(process.env.GENTY_API_KEY || process.env.GENITY_API_KEY)
+  return Boolean(envTrim('GENTY_API_KEY') || envTrim('GENITY_API_KEY'))
 }
 
 async function gentyFetch(path: string, init?: RequestInit) {
@@ -166,7 +167,7 @@ export function buildPosterPrompt(input: {
           input.storeBrand
             ? `Do NOT turn this into a "${input.storeBrand}" product poster unless the photo/label literally shows that brand.`
             : 'Do not inject an unrelated Indonesian cleaning-product brand.',
-          'Do NOT generate NUSACID bathroom cleaner packaging unless that is literally the product in the photo or the user explicitly asked for it.',
+          'Do NOT invent packaging for an unrelated catalog SKU. Follow the photo and user product name only.',
         ].join(' ')
       : ''
 

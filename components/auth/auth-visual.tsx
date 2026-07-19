@@ -103,13 +103,13 @@ export function AuthVisual() {
 
               <div className="rounded-xl rounded-tl-sm bg-[#1b2316] p-3">
                 <p className="text-[11px] leading-relaxed text-[#9ba394]">
-                  Foto produk NUSACID kamu sudah dianalisis. Ini caption siap posting:
+                  Foto produk toko kamu sudah dianalisis. Ini caption siap posting:
                 </p>
               </div>
 
               <div className="rounded-xl rounded-tl-sm border border-[#d6ff4a]/25 bg-[#151b12] p-3">
                 <p className="text-[11px] leading-relaxed text-[#f3f6ec]">
-                  {'"NUSACID Pembersih Kerak 1000 ml — hilangkan kerak kamar mandi dengan cepat. '}
+                  {'"Produk unggulan toko — kualitas terbaik, harga bersahabat. '}
                   <span className="text-[#d6ff4a]">order sekarang!</span>
                   {'"'}
                 </p>

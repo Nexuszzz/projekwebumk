@@ -6,11 +6,12 @@
  * when the client uploaded a different product.
  */
 
+import { envTrim } from '@/lib/server/auth'
 import type { ResolvedImage } from '@/lib/server/image-source'
 
 function getGeminiConfig() {
-  const apiKey = process.env.GEMINI_API_KEY
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const apiKey = envTrim('GEMINI_API_KEY')
+  const model = envTrim('GEMINI_MODEL') || 'gemini-2.5-flash'
   if (!apiKey || !apiKey.startsWith('AIza')) return null
   return { apiKey, model }
 }
@@ -47,7 +48,7 @@ export async function describeProductPackaging(input: {
         input.storeBrandHint
           ? `Ignore store brand "${input.storeBrandHint}" unless that exact brand text is visible on the pack.`
           : '',
-        'Do NOT rewrite the product as NUSACID, bathroom cleaner, or any other store SKU if the photo shows something else.',
+        'Do NOT rewrite the product as a different brand/SKU from the store catalog if the photo shows something else. Photo is source of truth.',
         'If brand text on the pack is readable, use that brand — not a different store brand.',
       ]
         .filter(Boolean)

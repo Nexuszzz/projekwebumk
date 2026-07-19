@@ -59,6 +59,41 @@ export type BusinessProfile = {
   notifications?: NotificationPreferences
   /** Bahasa antarmuka */
   locale?: 'id' | 'en'
+  /**
+   * Integrasi WhatsApp (GOWA gateway).
+   * deviceId = slot di GOWA (biasanya = businessId).
+   */
+  whatsapp?: {
+    deviceId?: string
+    /** Nomor yang dipakai pairing, e.g. 62812... */
+    phone?: string
+    /** JID setelah login, e.g. 62812...@s.whatsapp.net */
+    jid?: string
+    /** Auto-balas AI via webhook */
+    autoReply?: boolean
+    connectedAt?: string
+  }
+  /**
+   * Instagram per usaha (Graph API Content Publishing).
+   * Token disimpan di profil usaha — jangan share ke client browser (hanya server).
+   */
+  instagram?: {
+    /** IG User ID (Business/Creator), bukan @username — Graph API resmi */
+    accountId?: string
+    /** Page / long-lived access token dengan izin publish — Graph API */
+    accessToken?: string
+    /** @username untuk tampilan UI */
+    username?: string
+    connectedAt?: string
+    enabled?: boolean
+    /**
+     * DEMO ONLY — session dari aiograpi-rest (private API).
+     * Bukan resmi Meta; risiko ban. Jangan simpan password plain.
+     */
+    privateSessionId?: string
+    privateMode?: boolean
+    privateConnectedAt?: string
+  }
 }
 
 /** Satu usaha / tenant — dimiliki satu user (ownerUserId) */

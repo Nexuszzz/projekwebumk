@@ -1,5 +1,5 @@
 import { getSessionUser, googleOAuthConfigured } from '@/lib/server/auth'
-import { getSnapshotForUser } from '@/lib/server/db'
+import { ensureUserBusiness } from '@/lib/server/ensure-business'
 import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
@@ -12,7 +12,8 @@ export async function GET() {
       { status: 401 },
     )
   }
-  const snapshot = await getSnapshotForUser(user.id)
+  // Auto-buat usaha minimal di production agar WA/IG tidak “Belum ada usaha”
+  const snapshot = await ensureUserBusiness(user)
   return NextResponse.json({
     user,
     googleEnabled: googleOAuthConfigured(),

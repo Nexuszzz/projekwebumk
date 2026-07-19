@@ -495,9 +495,9 @@ export function HistoryView() {
       />
 
       {/* Header */}
-      <div className="relative flex flex-wrap items-end justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+      <div className="relative flex flex-wrap items-end justify-between gap-2 sm:gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="font-display text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
             Semua Riwayat
           </h2>
           <p className="text-sm text-muted-foreground">{`${historyRows.length} aktivitas tercatat`}</p>
@@ -505,16 +505,17 @@ export function HistoryView() {
         <button
           type="button"
           onClick={() => openContentModal()}
-          className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97]"
+          className="flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97] sm:px-5"
         >
           <Sparkles className="size-4 animate-sparkle-sway" aria-hidden="true" />
-          Buat Konten Baru
+          <span className="sm:hidden">Buat</span>
+          <span className="hidden sm:inline">Buat Konten Baru</span>
         </button>
       </div>
 
       {/* Toolbar */}
       <div className="relative flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1 basis-64">
+        <div className="relative min-w-0 flex-1 basis-full sm:basis-64">
           <Search
             className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden="true"
@@ -525,7 +526,7 @@ export function HistoryView() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Cari produk, caption, atau transaksi..."
             aria-label="Cari riwayat"
-            className="w-full rounded-full border border-border bg-background/60 py-2.5 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent/50"
+            className="w-full min-h-11 rounded-full border border-border bg-background/60 py-2.5 pl-10 pr-4 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent/50"
           />
         </div>
 
@@ -668,8 +669,8 @@ export function HistoryView() {
       <div className="relative flex items-stretch gap-0 lg:gap-0">
         {/* Table card */}
         <div className="min-w-0 flex-1 rounded-2xl border border-border bg-background/50">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-sm">
+          <div className="scroll-x-soft">
+            <table className="w-full min-w-[520px] border-collapse text-sm sm:min-w-[560px]">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th scope="col" className="py-3 pl-4 pr-2 sm:pl-5">
@@ -842,13 +843,13 @@ export function HistoryView() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 34, mass: 0.9 }}
-              className="fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-hidden rounded-t-3xl border-t border-border bg-card"
+              className="safe-pb fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-hidden rounded-t-3xl border-t border-border bg-card"
             >
               <div
                 className="mx-auto mt-3 h-1 w-10 rounded-full bg-border"
                 aria-hidden="true"
               />
-              <div className="max-h-[calc(88dvh-1.75rem)] overflow-y-auto">
+              <div className="max-h-[calc(88dvh-1.75rem)] overflow-y-auto overscroll-contain">
                 <DetailContent row={selected} onClose={() => setSelectedId(null)} />
               </div>
             </motion.div>

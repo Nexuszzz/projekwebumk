@@ -57,9 +57,9 @@ const features = [
 
 export function Features() {
   return (
-    <section id="fitur" className="mx-auto max-w-6xl px-4 py-24 md:px-6">
+    <section id="fitur" className="mx-auto max-w-6xl px-4 py-16 sm:py-20 md:px-6 md:py-24">
       <Reveal className="mx-auto max-w-xl text-center">
-        <h2 className="font-display text-3xl font-bold tracking-tight md:text-4xl text-balance">
+        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl text-balance">
           Semua yang UMKM butuhkan, dalam satu aplikasi
         </h2>
         <p className="mt-4 text-muted-foreground leading-relaxed">
@@ -113,9 +113,9 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="cara-kerja" className="mx-auto max-w-6xl px-4 pb-24 md:px-6">
+    <section id="cara-kerja" className="mx-auto max-w-6xl px-4 pb-16 sm:pb-20 md:px-6 md:pb-24">
       <Reveal>
-        <h2 className="text-center font-display text-3xl font-bold tracking-tight md:text-4xl text-balance">
+        <h2 className="text-center font-display text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl text-balance">
           Mulai dalam 3 langkah
         </h2>
       </Reveal>
@@ -154,21 +154,21 @@ export function HowItWorks() {
 
 export function CaseStudy() {
   return (
-    <section id="studi-kasus" className="mx-auto max-w-6xl px-4 pb-24 md:px-6">
+    <section id="studi-kasus" className="mx-auto max-w-6xl px-4 pb-16 sm:pb-20 md:px-6 md:pb-24">
       <Reveal>
-        <div className="grid overflow-hidden rounded-3xl border border-border bg-card md:grid-cols-2">
-          <div className="flex flex-col justify-center p-8 md:p-12">
+        <div className="grid overflow-hidden rounded-2xl border border-border bg-card sm:rounded-3xl md:grid-cols-2">
+          <div className="flex flex-col justify-center p-6 sm:p-8 md:p-12">
             <span className="inline-flex w-fit items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
               Studi Kasus
             </span>
             <h2 className="mt-5 font-display text-2xl font-bold tracking-tight md:text-3xl text-balance">
-              UMKM NUSACID: omzet naik 2x dalam 3 bulan
+              UMKM naik kelas: omzet naik 2x dalam 3 bulan
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground md:text-base">
-              NUSACID, produsen pembersih kerak kamar mandi asal Sidoarjo milik Naufal,
-              dulunya hanya berjualan lewat WhatsApp. Setelah memakai UMKMan, seluruh
-              konten promosi dibuat otomatis dan penjualan online tumbuh konsisten
-              tiap minggu.
+              Banyak pemilik usaha yang dulu cuma jualan lewat chat. Setelah memakai
+              UMKMan, konten promosi dibuat otomatis, stok & transaksi rapi, dan
+              penjualan online tumbuh konsisten tiap minggu — cocok untuk F&amp;B,
+              fashion, jasa, retail, dan jenis UMKM lain.
             </p>
             <a
               href="/login"
@@ -182,9 +182,9 @@ export function CaseStudy() {
             </a>
           </div>
 
-          <div className="border-t border-border bg-background/50 p-8 md:border-l md:border-t-0 md:p-12">
+          <div className="border-t border-border bg-background/50 p-6 sm:p-8 md:border-l md:border-t-0 md:p-12">
             <p className="text-xs text-muted-foreground">
-              Dashboard NUSACID — 90 hari terakhir
+              Contoh dashboard UMKM — 90 hari terakhir
             </p>
             <p className="mt-3 font-mono text-4xl font-bold text-accent">
               <CountUp value={104} prefix="+" suffix="%" />
@@ -232,8 +232,8 @@ export function CtaBand() {
         animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.15, 1] }}
         transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
       />
-      <Reveal className="relative mx-auto flex max-w-3xl flex-col items-center px-4 py-24 text-center">
-        <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl text-balance">
+      <Reveal className="relative mx-auto flex max-w-3xl flex-col items-center px-4 py-16 text-center sm:py-20 md:py-24">
+        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl md:text-5xl text-balance">
           Siap membawa usaha Anda naik kelas?
         </h2>
         <p className="mt-4 max-w-md text-muted-foreground leading-relaxed">

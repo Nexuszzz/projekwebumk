@@ -102,25 +102,25 @@ function TransactionStats({ transactions }: { transactions: TransactionItem[] })
     },
   ]
   return (
-    <Stagger className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <Stagger className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-4 xl:grid-cols-4">
       {stats.map((stat) => (
         <StaggerItem
           key={stat.label}
-          className="flex flex-col gap-3 rounded-2xl border border-border bg-background/50 p-5 transition-colors duration-300 hover:border-accent/30"
+          className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-background/50 p-4 transition-colors duration-300 hover:border-accent/30 sm:p-5"
         >
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium text-pretty">{stat.label}</p>
+            <p className="min-w-0 text-sm font-medium text-pretty">{stat.label}</p>
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-xs font-semibold ${DELTA_TONE[stat.tone]}`}
+              className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold sm:text-xs ${DELTA_TONE[stat.tone]}`}
             >
               {stat.delta}
             </span>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex min-w-0 flex-col gap-1">
             <CountUp
               value={stat.value}
               prefix={stat.prefix}
-              className="font-display text-3xl font-bold tracking-tight"
+              className="block max-w-full font-display text-2xl font-bold tracking-tight tabular-nums sm:text-3xl"
             />
             <p className="text-xs leading-snug text-muted-foreground text-pretty">
               {stat.compare}
@@ -584,9 +584,11 @@ function TransactionTable() {
   }
 
   return (
-    <section id="transaction-table" className="flex scroll-mt-6 flex-col gap-4 rounded-2xl border border-border bg-background/50 p-5 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold tracking-tight">Data Transaksi Lengkap</h2>
+    <section id="transaction-table" className="flex min-w-0 scroll-mt-6 flex-col gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:p-5 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <h2 className="min-w-0 font-display text-base font-bold tracking-tight sm:text-lg">
+          Data Transaksi Lengkap
+        </h2>
           <div className="relative flex flex-wrap items-center gap-2">
           <div className="relative">
             <motion.button
@@ -662,7 +664,7 @@ function TransactionTable() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -6, scale: 0.96 }}
                 transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute right-5 z-30 mt-12 w-64 rounded-2xl border border-border bg-popover p-4 shadow-xl sm:right-6"
+                className="absolute right-0 z-30 mt-12 w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-border bg-popover p-4 shadow-xl sm:right-0"
               >
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold">Filter Transaksi</h3>
@@ -681,14 +683,14 @@ function TransactionTable() {
         </div>
       </div>
 
-      <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
+      <div className="scroll-x-soft -mx-4 px-4 sm:-mx-6 sm:px-6">
         {filteredTransactions.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
             <Plus className="size-5 text-accent" aria-hidden="true" />
             Belum ada transaksi. Catat transaksi pertamamu!
           </div>
         )}
-        <table className="w-full min-w-[760px] border-collapse text-sm">
+        <table className="w-full min-w-[640px] border-collapse text-sm md:min-w-[760px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th scope="col" className="w-10 pb-3 pr-3">
@@ -847,15 +849,18 @@ export function TransactionView() {
       />
 
       {/* Header dengan CTA — konsisten dengan content-view */}
-      <div className="relative flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Transaksi</h2>
+      <div className="relative flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <h2 className="font-display text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
+          Transaksi
+        </h2>
         <button
           type="button"
           onClick={openTransactionModal}
-          className="flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97]"
+          className="flex min-h-11 items-center gap-2 rounded-full bg-accent px-4 py-2.5 text-sm font-bold text-accent-foreground transition-all duration-150 animate-glow-breathe hover:opacity-90 active:scale-[0.97] sm:px-5"
         >
           <Plus className="size-4" aria-hidden="true" />
-          Catat Transaksi Baru
+          <span className="sm:hidden">Catat</span>
+          <span className="hidden sm:inline">Catat Transaksi Baru</span>
         </button>
       </div>
 

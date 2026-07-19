@@ -177,8 +177,8 @@ async function requireOwned(userId: string, businessId?: string | null) {
   if (mine.length === 0) throw new Error('Belum ada usaha. Buat usaha baru dulu.')
   if (businessId) {
     const hit = mine.find((b) => b.id === businessId)
-    if (!hit) throw new Error('Usaha tidak ditemukan atau bukan milik akun Anda.')
-    return hit
+    if (hit) return hit
+    // businessId client basi — fallback ke usaha milik user
   }
   const user = await prisma.user.findUnique({ where: { id: userId } })
   if (user?.activeBusinessId) {
@@ -234,6 +234,55 @@ export async function getSnapshot(businessId?: string | null, userId?: string | 
   return result.business
 }
 
+export async function findBusinessByWhatsAppDevice(deviceId: string) {
+  if (!deviceId) return null
+  const prisma = getPrisma()
+  const key = deviceId.trim()
+  const keyDigits = key.replace(/\D/g, '')
+  const keyJid = key.includes('@') ? key : keyDigits ? `${keyDigits}@s.whatsapp.net` : ''
+
+  // Match by business id first (device_id sering = businessId)
+  const byId = await prisma.business.findUnique({
+    where: { id: key },
+    include: { products: true, contents: true, transactions: true },
+  })
+  if (byId) {
+    return {
+      ownerUserId: byId.ownerUserId,
+      businessId: byId.id,
+      business: toSnapshot(byId),
+    }
+  }
+  // Fallback scan profile.whatsapp.deviceId / jid / phone
+  const all = await prisma.business.findMany({
+    include: { products: true, contents: true, transactions: true },
+  })
+  for (const b of all) {
+    const profile = asProfile(b.profile)
+    if (profile.whatsapp?.deviceId === key || profile.whatsapp?.jid === key || profile.whatsapp?.jid === keyJid) {
+      return {
+        ownerUserId: b.ownerUserId,
+        businessId: b.id,
+        business: toSnapshot(b),
+      }
+    }
+    if (keyDigits) {
+      const phones = [profile.whatsapp?.phone, profile.phone, profile.whatsapp?.jid?.split('@')[0]]
+        .filter(Boolean)
+        .map((p) => String(p).replace(/\D/g, ''))
+        .map((d) => (d.startsWith('0') ? `62${d.slice(1)}` : d.startsWith('8') ? `62${d}` : d))
+      if (phones.some((d) => d === keyDigits || keyDigits.endsWith(d) || d.endsWith(keyDigits))) {
+        return {
+          ownerUserId: b.ownerUserId,
+          businessId: b.id,
+          business: toSnapshot(b),
+        }
+      }
+    }
+  }
+  return null
+}
+
 export async function listBusinesses(userId: string): Promise<BusinessSummary[]> {
   const prisma = getPrisma()
   const user = await prisma.user.findUnique({ where: { id: userId } })
@@ -278,8 +327,39 @@ export async function createBusiness(
   const owner = (input.owner || '').trim()
   if (!brand || !owner) throw new Error('Nama usaha dan pemilik wajib diisi.')
 
+  // Safety: owner harus ada di users (hindari FK businesses_ownerUserId_fkey)
+  let ownerRow = await prisma.user.findUnique({ where: { id: userId } })
+  if (!ownerRow && input.email) {
+    ownerRow = await prisma.user.findUnique({
+      where: { email: String(input.email).trim().toLowerCase() },
+    })
+  }
+  if (!ownerRow) {
+    // Buat user minimal dari claim session
+    try {
+      ownerRow = await prisma.user.create({
+        data: {
+          id: userId,
+          email: (input.email || `${userId}@umkman.local`).trim().toLowerCase(),
+          name: owner || 'Pemilik',
+          passwordHash: null,
+          sessionVersion: 0,
+          sessions: [],
+        },
+      })
+    } catch {
+      ownerRow = await prisma.user.findUnique({ where: { id: userId } })
+    }
+  }
+  if (!ownerRow) {
+    throw new Error('Akun belum terdaftar di database. Logout lalu login Google/email lagi.')
+  }
+  const resolvedOwnerId = ownerRow.id
+
   let slug = slugify(brand)
-  const clash = await prisma.business.findFirst({ where: { ownerUserId: userId, slug } })
+  const clash = await prisma.business.findFirst({
+    where: { ownerUserId: resolvedOwnerId, slug },
+  })
   if (clash) slug = `${slug}-${Date.now().toString(36).slice(-4)}`
 
   const profile: BusinessProfile = {
@@ -307,13 +387,13 @@ export async function createBusiness(
     data: {
       id,
       slug,
-      ownerUserId: userId,
+      ownerUserId: resolvedOwnerId,
       profile: profile as unknown as Prisma.InputJsonValue,
     },
     include: includeAll,
   })
   await prisma.user.update({
-    where: { id: userId },
+    where: { id: resolvedOwnerId },
     data: { activeBusinessId: id },
   })
   return toSnapshot(created)
@@ -338,12 +418,20 @@ export async function updateProfile(
           ...patch.notifications,
         })
       : normalizeNotifications(current.notifications)
-  const { ai: _a, notifications: _n, ...rest } = patch
+  const { ai: _a, notifications: _n, whatsapp: whatsappPatch, instagram: igPatch, ...rest } = patch
+  const nextWhatsapp =
+    whatsappPatch !== undefined
+      ? { ...(current.whatsapp || {}), ...whatsappPatch }
+      : current.whatsapp
+  const nextInstagram =
+    igPatch !== undefined ? { ...(current.instagram || {}), ...igPatch } : current.instagram
   const next = normalizeProfile({
     ...current,
     ...rest,
     ai: nextAi,
     notifications: nextNotifications,
+    whatsapp: nextWhatsapp,
+    instagram: nextInstagram,
     locale: patch.locale !== undefined ? normalizeLocale(patch.locale) : current.locale,
   })
   await prisma.business.update({
@@ -482,15 +570,57 @@ export async function createTransaction(
 }> {
   const prisma = getPrisma()
   const biz = await requireOwned(userId, input.businessId)
-  const catalog = biz.products.map(mapProduct)
+  let catalog = biz.products.map(mapProduct)
   const qty = Math.max(1, Math.round(Number(input.qty) || 1))
-  const product = findProduct(catalog, {
+  let product = findProduct(catalog, {
     productId: input.productId,
     productName: input.product,
   })
-  if (!product) throw new Error('Produk tidak ditemukan di katalog usaha ini. Tambah produk dulu.')
+
+  // Usaha baru sering belum punya katalog — buat produk otomatis dari deteksi AI
+  if (!product) {
+    const name = String(input.product || '').trim()
+    if (!name) {
+      throw new Error(
+        'Nama produk wajib. Pilih dari katalog atau ketik nama produk, lalu simpan lagi.',
+      )
+    }
+    const unit =
+      typeof input.unitPrice === 'number' && Number.isFinite(input.unitPrice) && input.unitPrice >= 0
+        ? Math.round(input.unitPrice)
+        : 0
+    const keywords = name
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .filter((t) => t.length > 1)
+      .slice(0, 12)
+    const createdProduct = await prisma.product.create({
+      data: {
+        id: `prod-${Date.now().toString(36)}`,
+        businessId: biz.id,
+        name,
+        shortName: name.slice(0, 48),
+        variant: '-',
+        image: '/placeholder.svg',
+        unitPrice: unit,
+        rating: 0,
+        sold: 0,
+        description: 'Dibuat otomatis dari transaksi AI',
+        // Stok cukup untuk transaksi ini; user bisa edit di Katalog
+        stock: qty,
+        lowStockAt: 10,
+        sku: `SKU-${Date.now().toString(36).toUpperCase()}`,
+        keywords: keywords as Prisma.InputJsonValue,
+      },
+    })
+    product = mapProduct(createdProduct)
+    catalog = [...catalog, product]
+  }
+
   if (product.stock < qty) {
-    throw new Error(`Stok ${product.shortName} tidak cukup. Tersedia ${product.stock}, diminta ${qty}.`)
+    throw new Error(
+      `Stok ${product.shortName} tidak cukup. Tersedia ${product.stock}, diminta ${qty}. Tambah stok di Katalog dulu.`,
+    )
   }
 
   const unitPrice =
@@ -507,10 +637,10 @@ export async function createTransaction(
         id,
         businessId: biz.id,
         createdAt: stamp.createdAt,
-        productId: product.id,
-        product: product.name,
-        variant: product.variant,
-        image: product.image,
+        productId: product!.id,
+        product: product!.name,
+        variant: product!.variant,
+        image: product!.image,
         qty,
         unitPrice,
         total: unitPrice * qty,
@@ -521,7 +651,7 @@ export async function createTransaction(
     })
     if (status === 'Tersimpan') {
       await client.product.update({
-        where: { id: product.id },
+        where: { id: product!.id },
         data: { stock: { decrement: qty }, sold: { increment: qty } },
       })
     }

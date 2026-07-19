@@ -8,7 +8,7 @@
  * Poster → POST /api/ai/poster (GenityBoost nano-banana).
  */
 import { buildUserPrompt, getCaptionSystemInstruction, getSystemInstruction } from '@/lib/ai-prompts'
-import { getSessionUser, unauthorized } from '@/lib/server/auth'
+import { envTrim, getSessionUser, unauthorized } from '@/lib/server/auth'
 import { getSnapshot } from '@/lib/server/db'
 import { NextResponse } from 'next/server'
 
@@ -42,8 +42,8 @@ function extractJson(text: string) {
 }
 
 export async function GET() {
-  const key = process.env.GEMINI_API_KEY
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const key = envTrim('GEMINI_API_KEY')
+  const model = envTrim('GEMINI_MODEL') || 'gemini-2.5-flash'
   if (!key) return jsonResponse({ configured: false, model, error: 'GEMINI_API_KEY belum tersedia di server.' }, 503)
   if (!key.startsWith('AIza')) {
     return jsonResponse(
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
   const user = await getSessionUser()
   if (!user) return unauthorized()
 
-  const key = process.env.GEMINI_API_KEY
+  const key = envTrim('GEMINI_API_KEY')
   if (!key) return jsonResponse({ error: 'AI belum dikonfigurasi. Tambahkan GEMINI_API_KEY ke .env.local.' }, 503)
   if (!key.startsWith('AIza')) {
     return jsonResponse(
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     required: ['product', 'qty', 'price'],
   }
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const model = envTrim('GEMINI_MODEL') || 'gemini-2.5-flash'
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`
 
   try {

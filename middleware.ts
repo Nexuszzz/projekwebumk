@@ -4,7 +4,10 @@ import { NextResponse, type NextRequest } from 'next/server'
 const SESSION_COOKIE = 'umkman_session'
 
 function getSecret() {
-  const secret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET
+  // Harus sama dengan lib/server/auth.ts (trim CRLF) agar session cookie valid setelah login Google/email.
+  const secret = (process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || '')
+    .replace(/[\r\n]+/g, '')
+    .trim()
   if (!secret || secret.length < 16) {
     return new TextEncoder().encode('umkman-dev-secret-change-me-32b')
   }
@@ -37,6 +40,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Lindungi API bisnis (kecuali auth & health AI GET boleh?)
+  // Webhook GOWA harus public (HMAC di route handler)
+  if (pathname.startsWith('/api/whatsapp/webhook')) {
+    return NextResponse.next()
+  }
+
   if (
     pathname.startsWith('/api/business') ||
     pathname.startsWith('/api/businesses') ||
@@ -45,6 +53,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/transactions') ||
     pathname.startsWith('/api/media') ||
     pathname.startsWith('/api/reports') ||
+    pathname.startsWith('/api/whatsapp') ||
+    pathname.startsWith('/api/instagram') ||
     (pathname.startsWith('/api/ai') && request.method === 'POST') ||
     pathname.startsWith('/api/ai/')
   ) {
@@ -75,5 +85,9 @@ export const config = {
     '/api/ai/:path*',
     '/api/media/:path*',
     '/api/reports/:path*',
+    '/api/whatsapp',
+    '/api/whatsapp/:path*',
+    '/api/instagram',
+    '/api/instagram/:path*',
   ],
 }

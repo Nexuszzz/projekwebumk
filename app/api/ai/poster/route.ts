@@ -7,7 +7,7 @@
  * Teks → POST /api/ai task=caption (Gemini).
  *
  * Multi-tenant / anti-leak:
- *  - Jangan default ke catalog[0] (bisa NUSACID) saat user upload foto/produk lain.
+ *  - Jangan default ke catalog[0] saat user upload foto/produk lain.
  *  - Katalog hanya dipakai jika nama produk BENAR-BENAR cocok.
  *  - Foto upload user = sumber kebenaran kemasan.
  *
@@ -63,7 +63,7 @@ export async function GET() {
     storage: '/storage/uploads + /api/media/file (auth)',
     docs: 'https://api.genityboost.site/docs/nano-banana',
     note:
-      'Poster = Genity. Foto upload user = prioritas. Tidak default ke produk katalog (mis. NUSACID) bila user minta/produk lain.',
+      'Poster = Genity. Foto upload user = prioritas. Tidak default ke SKU katalog bila user minta produk lain.',
   })
 }
 
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
   }
 
   // Nama produk di poster:
-  // 1) yang user ketik  2) match katalog  3) dari foto/prompt  — JANGAN default brand toko/NUSACID
+  // 1) yang user ketik  2) match katalog  3) dari foto/prompt  — JANGAN default brand toko
   let productHint = userProductName || matchedProductName
   if (!productHint && hasUserPhoto) {
     productHint = 'the product shown in the uploaded photo'
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
   }
 
   // Brand di poster: tegas hanya jika cocok katalog.
-  // Upload produk luar → jangan tempel merek toko (mis. NUSACID) ke kemasan client.
+  // Upload produk luar → jangan tempel merek toko ke kemasan yang berbeda.
   const brandForPrompt = catalogMatched ? storeBrand : !hasUserPhoto && storeBrand ? storeBrand : ''
   const categoryForPrompt = catalogMatched ? storeCategory : hasUserPhoto ? '' : storeCategory
   // Deskripsi katalog hanya jika match; selain itu hanya teks yang dikirim client (bukan inject SKU toko)
@@ -234,6 +234,7 @@ export async function POST(request: Request) {
       jobId: result.jobId,
       model: result.model,
       bytes: saved.bytes,
+      permanent: Boolean(saved.permanent),
       prompt,
       saved: true,
       usedVision: Boolean(visualDescription),

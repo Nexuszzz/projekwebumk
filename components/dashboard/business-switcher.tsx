@@ -73,7 +73,7 @@ export function BusinessSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex max-w-[14rem] items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-left transition-colors hover:border-accent/40"
+        className="flex max-w-[8.5rem] items-center gap-1.5 rounded-full border border-border bg-secondary/40 px-2 py-1.5 text-left transition-colors hover:border-accent/40 min-[400px]:max-w-[10.5rem] sm:max-w-[14rem] sm:gap-2 sm:px-3"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
@@ -157,7 +157,7 @@ export function BusinessSwitcher() {
                     className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs outline-none focus:border-accent"
                   />
                   <input
-                    placeholder="Kategori (kopi, fashion, dll.)"
+                    placeholder="Kategori usaha (F&B, fashion, jasa…)"
                     value={form.category}
                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                     className="h-9 rounded-lg border border-input bg-background px-2.5 text-xs outline-none focus:border-accent"

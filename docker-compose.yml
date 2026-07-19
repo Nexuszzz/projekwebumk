@@ -1,7 +1,7 @@
-# Postgres lokal untuk UMKMan
-# Jalankan: docker compose up -d
-# Lalu: npx prisma migrate dev
-#       npm run db:seed
+# UMKMan local stack
+# - Postgres: docker compose up -d db
+# - GOWA WhatsApp gateway: docker compose up -d gowa
+# GOWA UI/API: http://localhost:3100  (port 3100 agar tidak bentrok Next.js :3000)
 
 services:
   db:
@@ -21,5 +21,52 @@ services:
       timeout: 5s
       retries: 10
 
+  # Gateway WhatsApp Web multi-device (GOWA)
+  # Repo: https://github.com/aldinokemal/go-whatsapp-web-multidevice
+  gowa:
+    image: aldinokemal2104/go-whatsapp-web-multidevice:latest
+    container_name: umkman-gowa
+    restart: unless-stopped
+    ports:
+      - '3100:3100'
+    volumes:
+      - umkman_gowa:/app/storages
+    environment:
+      APP_PORT: '3100'
+      APP_HOST: '0.0.0.0'
+      APP_DEBUG: 'false'
+      APP_OS: 'UMKMan'
+      # Basic auth — harus sama dengan GOWA_BASIC_AUTH di .env.local
+      APP_BASIC_AUTH: 'umkman:umkman-gowa-secret'
+      # Webhook ke Next.js lokal (Windows Docker Desktop)
+      WHATSAPP_WEBHOOK: 'http://host.docker.internal:3000/api/whatsapp/webhook'
+      WHATSAPP_WEBHOOK_SECRET: 'umkman-webhook-secret'
+      WHATSAPP_WEBHOOK_EVENTS: 'message'
+      WHATSAPP_WEBHOOK_IGNORE_JIDS: '@g.us'
+      WHATSAPP_AUTO_MARK_READ: 'true'
+      WHATSAPP_ACCOUNT_VALIDATION: 'false'
+      WHATSAPP_AUTO_DOWNLOAD_MEDIA: 'false'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    command: ['rest']
+
+  # Instagram Private API gateway (DEMO ONLY — ban risk, ToS Meta)
+  # Docs: https://github.com/subzeroid/aiograpi-rest
+  # Swagger: http://localhost:8000/docs
+  # Login: POST /auth/login (username+password) → X-Session-ID
+  # Post:  POST /photo/upload (multipart) with X-Session-ID
+  aiograpi:
+    image: subzeroid/aiograpi-rest:latest
+    container_name: umkman-aiograpi
+    restart: unless-stopped
+    ports:
+      - '8000:8000'
+    volumes:
+      - umkman_aiograpi:/app/sessions
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+
 volumes:
   umkman_pg:
+  umkman_gowa:
+  umkman_aiograpi:

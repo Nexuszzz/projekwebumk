@@ -1,4 +1,4 @@
-import { appUrl, googleOAuthConfigured } from '@/lib/server/auth'
+import { appUrl, googleClientId, googleOAuthConfigured } from '@/lib/server/auth'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 
@@ -16,9 +16,19 @@ export async function GET() {
   }
 
   const state = randomBytes(16).toString('hex')
+  // Harus IDENTIK dengan Authorized redirect URI di Google Cloud Console
+  // dan dengan body token exchange di /api/auth/google/callback
   const redirectUri = `${appUrl()}/api/auth/google/callback`
+  const clientId = googleClientId()
+  if (!clientId.includes('.apps.googleusercontent.com')) {
+    return NextResponse.json(
+      { error: 'GOOGLE_CLIENT_ID tidak valid. Pastikan salin Client ID Web application.' },
+      { status: 503 },
+    )
+  }
+
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'openid email profile',
@@ -31,6 +41,7 @@ export async function GET() {
   const response = NextResponse.redirect(
     `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`,
   )
+  // SameSite=Lax wajib agar cookie ikut saat Google redirect kembali (top-level GET)
   response.cookies.set('umkman_oauth_state', state, {
     httpOnly: true,
     sameSite: 'lax',

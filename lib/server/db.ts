@@ -100,4 +100,11 @@ export async function updateContent(
   return m.updateContent(...args)
 }
 
+export async function findBusinessByWhatsAppDevice(
+  ...args: Parameters<typeof import('@/lib/server/db-file').findBusinessByWhatsAppDevice>
+) {
+  const m = await backend()
+  return m.findBusinessByWhatsAppDevice(...args)
+}
+
 export const NUSACID_OWNER_USER_ID = 'user-nusacid-naufal'

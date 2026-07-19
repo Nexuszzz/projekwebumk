@@ -68,14 +68,27 @@ export function ActivityTable() {
   })
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-border bg-background/50 p-5 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold tracking-tight">
+    <section className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:p-5 md:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <h2 className="min-w-0 font-display text-base font-bold tracking-tight sm:text-lg">
           Aktivitas Konten &amp; Transaksi
         </h2>
-        <div className="flex items-center gap-2">
-          {query !== '' && <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari aktivitas" className="h-8 w-36 rounded-full border border-input bg-background px-3 text-xs outline-none focus:border-accent" />}
-          <button type="button" onClick={() => setQuery((value) => value === '' ? ' ' : '')} aria-label="Cari aktivitas" className="flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground">
+        <div className="flex min-w-0 items-center gap-2">
+          {query !== '' && (
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Cari aktivitas"
+              className="h-9 w-[min(10rem,40vw)] rounded-full border border-input bg-background px-3 text-xs outline-none focus:border-accent sm:w-40"
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setQuery((value) => (value === '' ? ' ' : ''))}
+            aria-label="Cari aktivitas"
+            className="flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-foreground"
+          >
             {query === '' ? <Search className="size-3.5" aria-hidden="true" /> : <X className="size-3.5" aria-hidden="true" />}
           </button>
         </div>
@@ -111,15 +124,15 @@ export function ActivityTable() {
         })}
       </div>
 
-      {/* Table */}
-      <div className="-mx-5 overflow-x-auto px-5 sm:-mx-6 sm:px-6">
+      {/* Table — scroll horizontal di HP/tablet */}
+      <div className="scroll-x-soft -mx-5 px-5 sm:-mx-6 sm:px-6">
         {rows.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
             <Search className="size-5 text-accent" aria-hidden="true" />
             Belum ada aktivitas. Buat konten atau catat transaksi pertamamu.
           </div>
         )}
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+        <table className="w-full min-w-[560px] border-collapse text-sm sm:min-w-[640px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th scope="col" className="pb-3 pr-4 font-medium">

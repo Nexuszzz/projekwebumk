@@ -116,11 +116,19 @@ const swap = {
 }
 
 const ERROR_MAP: Record<string, string> = {
-  google_not_configured: 'Login Google belum dikonfigurasi di server (.env.local).',
-  google_state: 'Sesi Google tidak valid. Coba lagi.',
-  google_token: 'Gagal menukar kode Google. Cek Client ID/Secret.',
+  google_not_configured:
+    'Login Google belum dikonfigurasi di server (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET).',
+  google_state: 'Sesi Google tidak valid atau kedaluwarsa. Coba lagi (buka ulang tombol Google).',
+  google_token:
+    'Gagal menukar kode Google. Cek Client ID/Secret dan Authorized redirect URI di Google Cloud Console.',
+  google_redirect:
+    'Redirect URI tidak cocok. Di Google Console wajib ada: https://umkman.vercel.app/api/auth/google/callback',
+  google_client:
+    'Client ID/Secret Google tidak cocok. Pastikan secret di Vercel sama dengan di Google Console.',
+  google_denied: 'Login Google dibatalkan, atau email kamu belum ditambahkan sebagai Test user.',
   google_profile: 'Gagal membaca profil Google.',
-  google_failed: 'Login Google gagal. Coba lagi.',
+  google_failed:
+    'Login Google gagal di server. Coba lagi sekali; jika berulang, hubungi admin (simpan akun / session).',
 }
 
 export function AuthForm() {
@@ -195,7 +203,7 @@ export function AuthForm() {
   }
 
   return (
-    <div className="flex w-full flex-col justify-center px-6 py-10 sm:px-10 lg:px-14">
+    <div className="flex w-full min-w-0 flex-col justify-center px-4 py-8 sm:px-8 sm:py-10 md:px-10 lg:px-14">
       <motion.a
         href="/"
         className="flex items-center gap-2.5"
@@ -211,13 +219,13 @@ export function AuthForm() {
 
       <AnimatePresence mode="wait">
         <motion.div key={mode} {...swap} className="mt-8">
-          <h1 className="font-display text-3xl font-bold tracking-tight text-balance">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-balance sm:text-3xl">
             {mode === 'login' ? 'Selamat Datang Kembali' : 'Buat Akun Baru'}
           </h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
             {mode === 'login'
               ? 'Masuk ke akunmu — data usaha terisolasi per akun.'
-              : 'Daftar akun baru. Usaha NUSACID tidak tercampur dengan akun lain.'}
+              : 'Daftar akun baru. Setiap akun terisolasi — data client lain tidak tercampur.'}
           </p>
 
           {displayError && (
@@ -251,7 +259,7 @@ export function AuthForm() {
                   label="Nama Usaha"
                   value={business}
                   onChange={setBusiness}
-                  placeholder="Contoh: Kopi Nusantara"
+                  placeholder="Nama brand / usaha kamu"
                 />
                 <Field
                   label="Nama Lengkap"

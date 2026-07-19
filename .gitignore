@@ -6,20 +6,37 @@ __v0_jsx-dev-runtime.ts
 .v0-trash/
 .vercel/
 
-# Environment variables
+# Environment & secrets — NEVER commit real keys
+.env
+.env.*
+!.env.example
 .env*.local
+*.pem
+*.p12
+*.key
+credentials.json
+service-account*.json
+
+# Local / agent tooling
+.grok/
+.cursor/
+.idea/
+.vscode/
+*.log
 
 # Common ignores
 node_modules
 .next/
+out/
 .DS_Store
 # Unrelated reference repo
 gemini-web2api/
 
-# Runtime business DB (di-generate dari data/seed.json)
+# Runtime business DB (generated; seed is data/*-seed.json or data/seed.json only)
 data/business-db.json
 data/users.json
 data/*.tmp
+data/*.bak
 
 # Generated media (posters, uploads) — keep folder via .gitkeep
 public/uploads/**
@@ -28,7 +45,21 @@ public/uploads/**
 # private media storage
 /storage/uploads/**
 !/storage/.gitkeep
+/storage/**
+!/storage/.gitkeep
 
-
+# Local scratch / generated docs (not app source)
+request.json
 *.tsbuildinfo
+UMKMan-Project-Brief.docx
+Salinan dari Project Brief Template.docx
+aset nusacid/
+poster_marketing.jpg
+
+# OS / misc
+Thumbs.db
+Desktop.ini
+
+# Vendored GOWA clone (use Docker image; see docs/GOWA.md)
+vendor/
 

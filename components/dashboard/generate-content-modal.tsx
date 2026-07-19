@@ -179,7 +179,45 @@ export function GenerateContentModal() {
     handleFile(e.target.files?.[0])
   }
 
-  /** Edit mode: upload gambar baru → simpan ke server /uploads */
+  /** Kompres gambar di browser biar lolos body limit Vercel */
+  async function compressImageFile(file: File, maxEdge = 1600, quality = 0.82): Promise<Blob> {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height))
+    const w = Math.max(1, Math.round(bitmap.width * scale))
+    const h = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas tidak tersedia di browser ini.')
+    ctx.drawImage(bitmap, 0, 0, w, h)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality),
+    )
+    if (!blob) throw new Error('Gagal kompres gambar.')
+    return blob
+  }
+
+  async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
+    const text = await res.text()
+    if (!text) {
+      throw new Error(
+        res.status === 413
+          ? 'Gambar terlalu besar untuk di-upload. Coba foto lebih kecil.'
+          : `Server tidak mengirim respons (HTTP ${res.status}). Coba foto lebih kecil atau refresh.`,
+      )
+    }
+    try {
+      return JSON.parse(text) as Record<string, unknown>
+    } catch {
+      throw new Error(
+        `Respons server tidak valid (HTTP ${res.status}). Biasanya upload gagal karena ukuran/file. Coba kompres foto.`,
+      )
+    }
+  }
+
+  /** Edit mode: upload gambar baru → simpan ke server (multipart + compress) */
   async function onEditImageChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
@@ -187,22 +225,28 @@ export function GenerateContentModal() {
     setImageBusy(true)
     setError(null)
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(reader.result as string)
-        reader.onerror = () => reject(new Error('Gagal membaca file.'))
-        reader.readAsDataURL(file)
-      })
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (businessId) headers['x-business-id'] = businessId
+      // Preview lokal dulu biar UI responsif
+      const localPreview = URL.createObjectURL(file)
+      setPhoto(localPreview)
+      setPosterUrl(localPreview)
+      setPosterStatus('ready')
+
+      const compressed = await compressImageFile(file)
+      const form = new FormData()
+      form.append('file', compressed, 'edit.jpg')
+      form.append('kind', 'posters')
+      if (businessId) form.append('businessId', businessId)
+
       const res = await fetch('/api/media/upload', {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ dataUrl, businessId, kind: 'posters' }),
+        headers: businessId ? { 'x-business-id': businessId } : undefined,
+        body: form,
       })
-      const payload = await res.json()
-      if (!res.ok) throw new Error(payload.error || 'Gagal upload gambar.')
-      const path = payload.localPath || payload.url
+      const payload = await parseJsonSafe(res)
+      if (!res.ok) throw new Error(String(payload.error || 'Gagal upload gambar.'))
+      const path = String(payload.localPath || payload.url || '')
+      if (!path) throw new Error('Upload OK tapi path gambar kosong.')
+      URL.revokeObjectURL(localPreview)
       setPosterUrl(path)
       setPhoto(path)
       setPosterStatus('ready')
@@ -229,8 +273,14 @@ export function GenerateContentModal() {
           (p.name.toLowerCase().includes(productName.toLowerCase()) ||
             productName.toLowerCase().includes(p.shortName.toLowerCase())),
       )
-      // Foto user dulu; catalog image HANYA jika nama produk cocok (jangan paksa NUSACID)
+      // Foto user dulu; catalog image HANYA jika nama produk cocok
       const refPhoto = photo || posterUrl || (catalogMatch ? catalogMatch.image : undefined)
+      const safeRef =
+        refPhoto &&
+        !(refPhoto.startsWith('data:image/') && refPhoto.length > 200_000) &&
+        !refPhoto.startsWith('blob:')
+          ? refPhoto
+          : undefined
       const res = await fetch('/api/ai/poster', {
         method: 'POST',
         headers,
@@ -243,13 +293,14 @@ export function GenerateContentModal() {
           aspectRatio: posterAspect,
           resolution: '1K',
           userPrompt: userPrompt.trim() || undefined,
-          referenceImage: refPhoto || undefined,
+          referenceImage: safeRef,
           referenceImageUrl: catalogMatch && !photo ? catalogMatch.image : undefined,
         }),
       })
-      const payload = await res.json()
-      if (!res.ok) throw new Error(payload.error || 'Gagal generate poster.')
-      const path = payload.localPath || payload.url
+      const payload = await parseJsonSafe(res)
+      if (!res.ok) throw new Error(String(payload.error || 'Gagal generate poster.'))
+      const path = String(payload.localPath || payload.url || '')
+      if (!path) throw new Error('Poster generated tapi URL kosong.')
       setPosterUrl(path)
       setPhoto(path)
       setPosterStatus('ready')
@@ -302,7 +353,7 @@ export function GenerateContentModal() {
             (p.name.toLowerCase().includes(productName.toLowerCase()) ||
               productName.toLowerCase().includes(p.shortName.toLowerCase())),
         )
-        // Foto user = prioritas. Catalog image hanya jika nama cocok (anti-leak NUSACID).
+        // Foto user = prioritas. Catalog image hanya jika nama cocok (anti-leak multi-tenant).
         // Server resolve data URL / /products/... — jangan paksa brand toko ke produk luar.
         const productPhotoForPoster =
           photo || (catalogMatch ? catalogMatch.image : undefined) || undefined
@@ -315,7 +366,7 @@ export function GenerateContentModal() {
               headers,
               body: JSON.stringify({
                 task: 'caption',
-                // Jangan default ke profile.brand (bisa NUSACID) saat user upload produk lain
+                // Jangan default ke profile.brand saat user upload produk lain
                 productName: resolvedProductName || (photo ? 'Produk dari foto' : 'Produk'),
                 style,
                 platforms: platforms.length ? platforms : ['Instagram'],
@@ -324,8 +375,8 @@ export function GenerateContentModal() {
               }),
               signal: controller.signal,
             }).then(async (response) => {
-              const payload = await response.json()
-              if (!response.ok) throw new Error(payload.error || 'Gemini gagal membuat caption.')
+              const payload = await parseJsonSafe(response)
+              if (!response.ok) throw new Error(String(payload.error || 'Gemini gagal membuat caption.'))
               return payload
             })
           : Promise.resolve(null)
@@ -342,14 +393,22 @@ export function GenerateContentModal() {
                 description: catalogMatch?.description,
                 aspectRatio: posterAspect,
                 resolution: '1K',
-                referenceImage: productPhotoForPoster,
+                // Jangan kirim data URL raksasa ke Genity lewat body Vercel
+                referenceImage:
+                  productPhotoForPoster &&
+                  !(
+                    productPhotoForPoster.startsWith('data:image/') &&
+                    productPhotoForPoster.length > 200_000
+                  )
+                    ? productPhotoForPoster
+                    : undefined,
                 referenceImageUrl: catalogMatch && !photo ? catalogMatch.image : undefined,
                 userPrompt: userPrompt.trim() || undefined,
               }),
               signal: controller.signal,
             }).then(async (response) => {
-              const payload = await response.json()
-              if (!response.ok) throw new Error(payload.error || 'Genity gagal generate poster.')
+              const payload = await parseJsonSafe(response)
+              if (!response.ok) throw new Error(String(payload.error || 'Genity gagal generate poster.'))
               return payload as { url: string; localPath?: string }
             })
           : Promise.resolve(null)
@@ -366,7 +425,12 @@ export function GenerateContentModal() {
               ? captionResult.reason
               : new Error('Gemini gagal membuat caption.')
           }
-          setCaptions(captionResult.value?.captions ?? {})
+          const caps = captionResult.value?.captions
+          setCaptions(
+            caps && typeof caps === 'object' && !Array.isArray(caps)
+              ? (caps as Record<string, string>)
+              : {},
+          )
         } else {
           // Poster only: isi deskripsi ringkas dari prompt/nama agar tetap bisa disimpan ke Konten
           const fallbackText =
@@ -457,15 +521,22 @@ export function GenerateContentModal() {
 
   async function save(status: 'Draft' | 'Terposting') {
     try {
-      const imageForSave = posterUrl || photo || '/placeholder.svg'
+      setError(null)
+      // Jangan kirim data URL raksasa ke API (body limit Vercel)
+      let imageForSave = posterUrl || photo || '/placeholder.svg'
+      if (
+        typeof imageForSave === 'string' &&
+        imageForSave.startsWith('data:image/') &&
+        imageForSave.length > 200_000
+      ) {
+        imageForSave = '/placeholder.svg'
+      }
       const plats =
         isEdit && editItem
           ? [editItem.platform]
-          : needCaption
+          : platforms.length
             ? platforms
-            : platforms.length
-              ? platforms
-              : (['Instagram'] as Platform[])
+            : (['Instagram'] as Platform[])
 
       if (isEdit && editItem) {
         await updateContent(editItem.id, {
@@ -482,6 +553,9 @@ export function GenerateContentModal() {
           platform: p,
           status,
         }))
+        if (!items.length) {
+          throw new Error('Pilih minimal 1 platform sebelum menyimpan.')
+        }
         await addContents(items)
       }
       closeContentModal()
@@ -984,6 +1058,11 @@ export function GenerateContentModal() {
                 </div>
               ))}
 
+            <p className="text-center text-[11px] text-muted-foreground">
+              Setelah disimpan, buka tab <strong className="text-foreground">Konten</strong> → tombol{' '}
+              <strong className="text-[#E1306C]">Post ke IG</strong> untuk salin caption + unduh poster ke
+              Instagram.
+            </p>
             <div className="flex flex-col gap-2.5 sm:flex-row">
               <button
                 type="button"

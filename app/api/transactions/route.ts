@@ -1,5 +1,6 @@
 import { getSessionUser, unauthorized } from '@/lib/server/auth'
 import { createTransaction, getSnapshot, updateTransactionStatus } from '@/lib/server/db'
+import { ensureUserBusiness } from '@/lib/server/ensure-business'
 import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
@@ -33,24 +34,44 @@ export async function POST(request: Request) {
     if (!Number.isFinite(qty) || qty < 1) {
       return NextResponse.json({ error: 'qty minimal 1.' }, { status: 400 })
     }
-    if (!body?.productId && !body?.product) {
-      return NextResponse.json({ error: 'productId atau product wajib.' }, { status: 400 })
+    const productName = String(body?.product || '').trim()
+    const productId = body?.productId ? String(body.productId).trim() : ''
+    if (!productId && !productName) {
+      return NextResponse.json(
+        {
+          error:
+            'Nama produk wajib. Pilih dari katalog atau ketik nama produk di form transaksi.',
+        },
+        { status: 400 },
+      )
+    }
+
+    const wanted = bizId(request, body)
+    const snap = await ensureUserBusiness(user, wanted)
+    if (!snap.ok) {
+      return NextResponse.json({ error: 'Belum ada usaha. Buat usaha dulu.' }, { status: 400 })
     }
 
     const result = await createTransaction(user.id, {
-      productId: body.productId,
-      product: body.product,
+      productId: productId || undefined,
+      product: productName || undefined,
       qty,
       unitPrice: body.unitPrice != null ? Number(body.unitPrice) : undefined,
       status: body.status === 'Perlu Verifikasi' ? 'Perlu Verifikasi' : 'Tersimpan',
-      businessId: bizId(request, body),
+      businessId: snap.business.id,
     })
 
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error('POST /api/transactions', error)
     const message = error instanceof Error ? error.message : 'Gagal menyimpan transaksi.'
-    const status = message.includes('Stok') || message.includes('tidak ditemukan') ? 400 : 500
+    const status =
+      message.includes('Stok') ||
+      message.includes('tidak ditemukan') ||
+      message.includes('wajib') ||
+      message.includes('katalog')
+        ? 400
+        : 500
     return NextResponse.json({ error: message }, { status })
   }
 }

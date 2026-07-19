@@ -7,11 +7,18 @@ import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
+function databaseUrl() {
+  return (process.env.DATABASE_URL || '').replace(/[\r\n]+/g, '').trim()
+}
+
 export function getPrisma() {
-  if (!process.env.DATABASE_URL) {
+  const url = databaseUrl()
+  if (!url) {
     throw new Error('DATABASE_URL belum di-set. Postgres mode tidak aktif.')
   }
   if (!globalForPrisma.prisma) {
+    // Pastikan Prisma pakai URL bersih (tanpa CRLF dari env Vercel)
+    process.env.DATABASE_URL = url
     globalForPrisma.prisma = new PrismaClient({
       log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
     })
@@ -20,7 +27,7 @@ export function getPrisma() {
 }
 
 export function usePostgres() {
-  const url = process.env.DATABASE_URL || ''
+  const url = databaseUrl()
   if (!url.startsWith('postgres')) return false
   // Placeholder hanya untuk `prisma generate` di build Vercel — bukan DB runtime
   if (url.includes('build:build@') || url.includes('@127.0.0.1:5432/build')) return false

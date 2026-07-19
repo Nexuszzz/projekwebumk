@@ -7,6 +7,12 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { DEFAULT_AI_PREFERENCES, normalizeAiPreferences } from '@/lib/ai-style'
 import { normalizeLocale, normalizeNotifications } from '@/lib/preferences'
+import {
+  ensureWritableDataDir,
+  seedDataDir,
+  writableDataDir,
+  writeJsonFile,
+} from '@/lib/server/data-paths'
 import type {
   BusinessDatabase,
   BusinessProfile,
@@ -20,9 +26,15 @@ import type {
   TxStatus,
 } from '@/lib/types'
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const DB_PATH = path.join(DATA_DIR, 'business-db.json')
-const SEED_PATH = path.join(DATA_DIR, 'seed.json')
+function dataDir() {
+  return writableDataDir()
+}
+function dbPath() {
+  return path.join(writableDataDir(), 'business-db.json')
+}
+function seedPath() {
+  return path.join(seedDataDir(), 'seed.json')
+}
 
 /** Akun seed NUSACID — harus cocok users-seed.json */
 export const NUSACID_OWNER_USER_ID = 'user-nusacid-naufal'
@@ -144,25 +156,24 @@ function migrateIfNeeded(raw: unknown): PlatformDatabase {
 }
 
 async function ensureDbFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true })
-  if (await pathExists(DB_PATH)) return
-  const seedRaw = await fs.readFile(SEED_PATH, 'utf8')
-  await fs.writeFile(DB_PATH, seedRaw, 'utf8')
+  await ensureWritableDataDir()
+  const dest = dbPath()
+  if (await pathExists(dest)) return
+  const seedRaw = await fs.readFile(seedPath(), 'utf8')
+  await fs.writeFile(dest, seedRaw, 'utf8')
 }
 
 async function readPlatform(): Promise<PlatformDatabase> {
   await ensureDbFile()
-  const raw = await fs.readFile(DB_PATH, 'utf8')
+  const raw = await fs.readFile(dbPath(), 'utf8')
   return migrateIfNeeded(JSON.parse(raw))
 }
 
 async function writePlatform(db: PlatformDatabase) {
   db.updatedAt = new Date().toISOString()
   db.version = (db.version || 0) + 1
-  await fs.mkdir(DATA_DIR, { recursive: true })
-  const tmp = `${DB_PATH}.${process.pid}.tmp`
-  await fs.writeFile(tmp, JSON.stringify(db, null, 2), 'utf8')
-  await fs.rename(tmp, DB_PATH)
+  await ensureWritableDataDir()
+  await writeJsonFile(dbPath(), db)
 }
 
 function requireOwnedBusiness(
@@ -176,8 +187,14 @@ function requireOwnedBusiness(
   }
   if (businessId) {
     const biz = mine.find((b) => b.id === businessId)
-    if (!biz) throw new Error('Usaha tidak ditemukan atau bukan milik akun Anda.')
-    return biz
+    // Di Vercel /tmp, client sering bawa businessId lama (instance lain).
+    // Jangan gagalkan simpan — pakai usaha milik user yang ada.
+    if (biz) return biz
+  }
+  // Prefer active hint, else first owned
+  if (db.activeBusinessId) {
+    const active = mine.find((b) => b.id === db.activeBusinessId)
+    if (active) return active
   }
   return mine[0]
 }
@@ -242,6 +259,46 @@ export async function getSnapshot(businessId?: string | null, userId?: string | 
   const result = await getSnapshotForUser(userId, businessId)
   if (!result.ok) throw new Error('Belum ada usaha.')
   return result.business
+}
+
+/**
+ * Cari usaha by GOWA device_id (untuk webhook, tanpa session user).
+ * Match: profile.whatsapp.deviceId === deviceId ATAU business.id === deviceId
+ */
+export async function findBusinessByWhatsAppDevice(
+  deviceId: string,
+): Promise<{ ownerUserId: string; businessId: string; business: BusinessDatabase } | null> {
+  if (!deviceId) return null
+  const db = await readPlatform()
+  const key = deviceId.trim()
+  const keyDigits = key.replace(/\D/g, '')
+  const keyJid = key.includes('@') ? key : keyDigits ? `${keyDigits}@s.whatsapp.net` : ''
+
+  const record =
+    db.businesses.find((b) => b.profile.whatsapp?.deviceId === key) ||
+    db.businesses.find((b) => b.id === key) ||
+    db.businesses.find((b) => b.profile.whatsapp?.jid === key || b.profile.whatsapp?.jid === keyJid) ||
+    // Match nomor toko (phone di profil / whatsapp.phone)
+    (keyDigits
+      ? db.businesses.find((b) => {
+          const phones = [
+            b.profile.whatsapp?.phone,
+            b.profile.phone,
+            b.profile.whatsapp?.jid?.split('@')[0],
+          ]
+            .filter(Boolean)
+            .map((p) => String(p).replace(/\D/g, ''))
+            .map((d) => (d.startsWith('0') ? `62${d.slice(1)}` : d.startsWith('8') ? `62${d}` : d))
+          return phones.some((d) => d === keyDigits || keyDigits.endsWith(d) || d.endsWith(keyDigits))
+        })
+      : null) ||
+    null
+  if (!record) return null
+  return {
+    ownerUserId: record.ownerUserId,
+    businessId: record.id,
+    business: toSnapshot(record, db.version),
+  }
 }
 
 export async function setActiveBusiness(userId: string, businessId: string): Promise<BusinessDatabase> {
@@ -330,12 +387,29 @@ export async function updateProfile(
             ...patch.notifications,
           })
         : normalizeNotifications(biz.profile.notifications)
-    const { ai: _a, notifications: _n, ...rest } = patch
+    const { ai: _a, notifications: _n, whatsapp: whatsappPatch, instagram: igPatch, ...rest } =
+      patch
+    const nextWhatsapp =
+      whatsappPatch !== undefined
+        ? {
+            ...(biz.profile.whatsapp || {}),
+            ...whatsappPatch,
+          }
+        : biz.profile.whatsapp
+    const nextInstagram =
+      igPatch !== undefined
+        ? {
+            ...(biz.profile.instagram || {}),
+            ...igPatch,
+          }
+        : biz.profile.instagram
     biz.profile = normalizeProfile({
       ...biz.profile,
       ...rest,
       ai: nextAi,
       notifications: nextNotifications,
+      whatsapp: nextWhatsapp,
+      instagram: nextInstagram,
       locale: patch.locale !== undefined ? normalizeLocale(patch.locale) : biz.profile.locale,
     })
     touchBusiness(biz)
@@ -470,16 +544,48 @@ export async function createTransaction(
     const db = await readPlatform()
     const biz = requireOwnedBusiness(db, userId, input.businessId)
     const qty = Math.max(1, Math.round(Number(input.qty) || 1))
-    const product = findProduct(biz.catalog, {
+    let product = findProduct(biz.catalog, {
       productId: input.productId,
       productName: input.product,
     })
+
     if (!product) {
-      throw new Error('Produk tidak ditemukan di katalog usaha ini. Tambah produk dulu.')
+      const name = String(input.product || '').trim()
+      if (!name) {
+        throw new Error(
+          'Nama produk wajib. Pilih dari katalog atau ketik nama produk, lalu simpan lagi.',
+        )
+      }
+      const unit =
+        typeof input.unitPrice === 'number' && Number.isFinite(input.unitPrice) && input.unitPrice >= 0
+          ? Math.round(input.unitPrice)
+          : 0
+      const keywords = name
+        .toLowerCase()
+        .split(/[^a-z0-9]+/i)
+        .filter((t) => t.length > 1)
+        .slice(0, 12)
+      product = {
+        id: `prod-${Date.now().toString(36)}`,
+        name,
+        shortName: name.slice(0, 48),
+        variant: '-',
+        image: '/placeholder.svg',
+        unitPrice: unit,
+        rating: 0,
+        sold: 0,
+        description: 'Dibuat otomatis dari transaksi AI',
+        stock: qty,
+        lowStockAt: 10,
+        sku: `SKU-${Date.now().toString(36).toUpperCase()}`,
+        keywords,
+      }
+      biz.catalog = [...biz.catalog, product]
     }
+
     if (product.stock < qty) {
       throw new Error(
-        `Stok ${product.shortName} tidak cukup. Tersedia ${product.stock}, diminta ${qty}.`,
+        `Stok ${product.shortName} tidak cukup. Tersedia ${product.stock}, diminta ${qty}. Tambah stok di Katalog dulu.`,
       )
     }
 
@@ -625,13 +731,14 @@ export async function updateContent(
 
 export async function resetDbFromSeed(): Promise<PlatformDatabase> {
   return withLock(async () => {
-    const seedRaw = await fs.readFile(SEED_PATH, 'utf8')
+    const seedRaw = await fs.readFile(seedPath(), 'utf8')
     const migrated = migrateIfNeeded(JSON.parse(seedRaw))
     await writePlatform(migrated)
     // Also reset users from seed
-    const usersSeed = path.join(DATA_DIR, 'users-seed.json')
-    const usersPath = path.join(DATA_DIR, 'users.json')
+    const usersSeed = path.join(seedDataDir(), 'users-seed.json')
+    const usersPath = path.join(dataDir(), 'users.json')
     if (await pathExists(usersSeed)) {
+      await ensureWritableDataDir()
       await fs.copyFile(usersSeed, usersPath)
     }
     return migrated

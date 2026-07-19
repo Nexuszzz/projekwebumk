@@ -121,7 +121,7 @@ export function buildCaptionUserPrompt(
       : []
   const catalogHits = matched.length > 0 ? matched : promptMatched
 
-  // User minta sesuatu spesifik di luar katalog → jangan inject full catalog NUSACID dll.
+  // User minta sesuatu spesifik di luar katalog → jangan inject full catalog toko.
   const forceOutsideCatalog =
     Boolean(productName || custom) && catalogHits.length === 0
 
@@ -179,7 +179,7 @@ ${scheduleBlock}
 ## Aturan output
 - Caption HARUS tentang produk/konteks yang diminta user, BUKAN produk katalog yang tidak diminta.
 - Jangan mengganti nama produk ke brand/SKU katalog toko.
-- Jika user bilang "bukan NUSACID" / produk lain → patuhi, jangan sebut produk katalog.
+- Jika user minta produk di luar katalog toko → patuhi teks user, jangan ganti ke SKU katalog yang tidak diminta.
 - Harga: sebut hanya jika user minta ATAU produk cocok katalog (pakai harga katalog).
 - Tone ${style} harus konsisten di SEMUA platform (boleh beda panjang, gaya sama).
 - Maks ~500 karakter per platform.
@@ -194,24 +194,29 @@ export function buildTransactionUserPrompt(db: BusinessDatabase, text: string): 
     )
     .join('\n')
   const fallback = defaultCatalogProduct(db.catalog)
+  const brand = db.profile.brand
 
-  return `Tugas: parse teks transaksi menjadi JSON.
+  return `Tugas: parse teks transaksi menjadi JSON untuk usaha "${brand}" (multi-tenant — hanya data usaha ini).
 
-Katalog live:
-${catalog}
+Katalog live usaha ini:
+${catalog || '(katalog kosong — ekstrak nama produk dari teks user)'}
 
-Default: product="${fallback?.name ?? ''}", price=${fallback?.unitPrice ?? 0}
+${
+  fallback
+    ? `Default jika user tidak sebut produk: product="${fallback.name}", price=${fallback.unitPrice}`
+    : `Katalog kosong: product = nama dari teks user (boleh nama bebas), price dari teks atau 0.`
+}
 
-Teks:
+Teks user:
 """
 ${text}
 """
 
 Aturan:
-- product: PERSIS salah satu nama katalog.
-- qty: bilangan bulat ≥ 1 (tidak boleh melebihi stok bila disebut).
-- price: harga SATUAN; jika ragu pakai harga katalog.
-- Jangan invent produk di luar katalog.`
+- product: jika cocok katalog, pakai NAMA PERSIS dari katalog. Jika tidak cocok / katalog kosong, pakai nama produk dari teks user (jangan ganti ke merek lain / demo seed).
+- qty: bilangan bulat ≥ 1.
+- price: harga SATUAN; jika user sebut total, hitung satuan; jika ragu & ada match katalog, pakai harga katalog.
+- JANGAN memakai merek/SKU usaha lain di luar katalog usaha ini.`
 }
 
 export function buildAssistantUserPrompt(db: BusinessDatabase, message: string): string {

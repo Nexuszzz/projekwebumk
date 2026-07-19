@@ -14,6 +14,8 @@ import {
   LogOut,
   Mail,
   MapPin,
+  ImageIcon,
+  MessageCircle,
   MessageSquare,
   Monitor,
   Moon,
@@ -28,6 +30,8 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
+import { InstagramConnectSection } from './instagram-connect'
+import { WhatsAppConnectSection } from './whatsapp-connect'
 import Image from 'next/image'
 import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '@/components/theme-provider'
@@ -38,13 +42,23 @@ import type { NotificationPreferences } from '@/lib/types'
 
 /* ================= Types & data ================= */
 
-type SectionId = 'profil' | 'katalog' | 'notifikasi' | 'ai' | 'keamanan' | 'tampilan'
+type SectionId =
+  | 'profil'
+  | 'katalog'
+  | 'notifikasi'
+  | 'ai'
+  | 'whatsapp'
+  | 'instagram'
+  | 'keamanan'
+  | 'tampilan'
 
 const SECTIONS: { id: SectionId; label: string; icon: typeof User; desc: string }[] = [
   { id: 'profil', label: 'Profil Usaha', icon: Store, desc: 'Identitas & info toko' },
   { id: 'katalog', label: 'Katalog Produk', icon: Package, desc: 'Harga & stok live' },
   { id: 'notifikasi', label: 'Notifikasi', icon: Bell, desc: 'Peringatan di aplikasi' },
   { id: 'ai', label: 'AI & Otomatisasi', icon: Bot, desc: 'Asisten cerdas' },
+  { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, desc: 'Chatbot pelanggan' },
+  { id: 'instagram', label: 'Instagram', icon: ImageIcon, desc: 'Post konten client' },
   { id: 'keamanan', label: 'Keamanan', icon: Shield, desc: 'Kata sandi & sesi' },
   { id: 'tampilan', label: 'Tampilan & Bahasa', icon: Monitor, desc: 'Tema & lokal' },
 ]
@@ -94,7 +108,7 @@ function SettingRow({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3.5">
+    <div className="flex flex-col gap-3 py-3.5 min-[400px]:flex-row min-[400px]:items-center min-[400px]:justify-between min-[400px]:gap-4">
       <div className="flex min-w-0 items-start gap-3">
         {Icon && (
           <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
@@ -102,11 +116,11 @@ function SettingRow({
           </span>
         )}
         <div className="min-w-0">
-          <p className="text-sm font-medium">{title}</p>
-          <p className="text-xs text-muted-foreground">{desc}</p>
+          <p className="text-sm font-medium text-break-safe">{title}</p>
+          <p className="text-xs text-muted-foreground text-break-safe">{desc}</p>
         </div>
       </div>
-      {children}
+      <div className="flex shrink-0 items-center gap-2 min-[400px]:justify-end">{children}</div>
     </div>
   )
 }
@@ -354,9 +368,12 @@ function ProfileSection() {
 }
 
 function CatalogSection() {
-  const { catalog, profile, addProduct } = useDashboard()
+  const { catalog, profile, addProduct, addStock, updateProduct } = useDashboard()
   const [saving, setSaving] = useState(false)
+  const [stockBusyId, setStockBusyId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  /** Jumlah restock per produk (input) */
+  const [restockQty, setRestockQty] = useState<Record<string, string>>({})
   const [form, setForm] = useState({
     name: '',
     shortName: '',
@@ -388,35 +405,145 @@ function CatalogSection() {
     }
   }
 
+  async function onAddStock(productId: string) {
+    const raw = restockQty[productId] ?? '10'
+    const amount = Math.round(Number(raw))
+    if (!Number.isFinite(amount) || amount < 1) {
+      setMessage('Isi jumlah stok masuk (minimal 1).')
+      return
+    }
+    setStockBusyId(productId)
+    setMessage(null)
+    try {
+      const updated = await addStock(productId, amount)
+      setRestockQty((m) => ({ ...m, [productId]: '' }))
+      setMessage(`Stok ${updated.shortName} bertambah +${amount} → total ${updated.stock}.`)
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Gagal menambah stok.')
+    } finally {
+      setStockBusyId(null)
+    }
+  }
+
+  async function onSetStock(productId: string, stockStr: string) {
+    const stock = Math.max(0, Math.round(Number(stockStr)))
+    if (!Number.isFinite(stock)) {
+      setMessage('Stok harus angka.')
+      return
+    }
+    setStockBusyId(productId)
+    setMessage(null)
+    try {
+      const updated = await updateProduct(productId, { stock })
+      setMessage(`Stok ${updated.shortName} diset ke ${updated.stock}.`)
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Gagal mengubah stok.')
+    } finally {
+      setStockBusyId(null)
+    }
+  }
+
   return (
     <SectionCard
       id="katalog"
-      title="Katalog Produk"
-      desc={`Produk milik ${profile?.brand ?? 'usaha aktif'} — harga & stok dipakai transaksi + AI. Client lain punya katalog sendiri.`}
+      title="Katalog & Stok"
+      desc={`Produk ${profile?.brand ?? 'usaha aktif'}: tambah barang, restock, dan atur harga. Transaksi penjualan mengurangi stok; di sini kamu menambah stok masuk.`}
     >
       {catalog.length === 0 ? (
         <p className="mb-4 rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-          Katalog masih kosong. Tambah produk pertama untuk mulai mencatat penjualan.
+          Katalog masih kosong. Tambah produk + stok awal di bawah, baru catat penjualan.
         </p>
       ) : (
         <ul className="mb-5 divide-y divide-border rounded-xl border border-border">
-          {catalog.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-3 px-3.5 py-3 text-sm">
-              <span className="min-w-0">
-                <span className="block font-semibold">{p.shortName}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {p.sku} · {p.variant}
+          {catalog.map((p) => {
+            const busy = stockBusyId === p.id
+            return (
+              <li key={p.id} className="flex flex-col gap-3 px-3.5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <span className="min-w-0">
+                  <span className="block font-semibold text-sm">{p.shortName || p.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {p.name}
+                    {p.variant && p.variant !== '-' ? ` · ${p.variant}` : ''}
+                  </span>
+                  <span className="mt-1 block font-mono text-xs">
+                    Rp {p.unitPrice.toLocaleString('id-ID')} ·{' '}
+                    <span className={p.stock <= p.lowStockAt ? 'font-semibold text-destructive' : 'text-muted-foreground'}>
+                      stok {p.stock}
+                    </span>
+                    {p.stock <= p.lowStockAt ? ' · menipis' : ''}
+                  </span>
                 </span>
-              </span>
-              <span className="shrink-0 text-right font-mono text-xs">
-                <span className="block font-semibold">Rp {p.unitPrice.toLocaleString('id-ID')}</span>
-                <span className="text-muted-foreground">stok {p.stock}</span>
-              </span>
-            </li>
-          ))}
+
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    +Stok
+                    <input
+                      type="number"
+                      min={1}
+                      inputMode="numeric"
+                      placeholder="10"
+                      value={restockQty[p.id] ?? ''}
+                      onChange={(e) =>
+                        setRestockQty((m) => ({ ...m, [p.id]: e.target.value }))
+                      }
+                      className="h-9 w-20 rounded-lg border border-input bg-background/60 px-2 font-mono text-sm text-foreground outline-none focus:border-accent"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void onAddStock(p.id)}
+                    className="inline-flex h-9 items-center gap-1 rounded-full bg-accent px-3 text-xs font-semibold text-accent-foreground disabled:opacity-50"
+                  >
+                    <Plus className="size-3.5" />
+                    {busy ? '…' : 'Tambah stok'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      const v = window.prompt(
+                        `Set stok absolut untuk "${p.shortName || p.name}" (sekarang ${p.stock}):`,
+                        String(p.stock),
+                      )
+                      if (v == null) return
+                      void onSetStock(p.id, v)
+                    }}
+                    className="inline-flex h-9 items-center rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  >
+                    Set stok
+                  </button>
+                  <div className="flex gap-1">
+                    {[10, 25, 50].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void addStock(p.id, n).then((u) => {
+                          setMessage(`Stok ${u.shortName} +${n} → ${u.stock}`)
+                        }).catch((e) => {
+                          setMessage(e instanceof Error ? e.message : 'Gagal restock')
+                        })}
+                        className="h-8 rounded-full border border-border px-2 font-mono text-[11px] text-muted-foreground hover:border-accent/40 hover:text-foreground disabled:opacity-50"
+                      >
+                        +{n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
 
+      {message && (
+        <p className="mb-3 rounded-xl border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+          {message}
+        </p>
+      )}
+
+      <p className="mb-2 text-xs font-semibold text-foreground">Tambah produk baru</p>
       <form onSubmit={(e) => void onSubmit(e)} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Nama produk" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} />
         <Field label="Nama pendek" value={form.shortName} onChange={(v) => setForm((f) => ({ ...f, shortName: v }))} />
@@ -426,12 +553,11 @@ function CatalogSection() {
         <div className="sm:col-span-2">
           <Field label="Deskripsi" value={form.description} onChange={(v) => setForm((f) => ({ ...f, description: v }))} />
         </div>
-        <div className="sm:col-span-2 flex items-center justify-between gap-3">
-          {message && <p className="text-xs text-muted-foreground">{message}</p>}
+        <div className="sm:col-span-2 flex items-center justify-end gap-3">
           <button
             type="submit"
             disabled={saving || !form.name || !form.unitPrice}
-            className="ml-auto inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-40"
           >
             <Plus className="size-4" />
             {saving ? 'Menyimpan...' : 'Tambah produk'}
@@ -1163,7 +1289,10 @@ export function SettingsView() {
           <h2 className="mb-1 font-display text-xl font-bold tracking-tight">Pengaturan</h2>
           <p className="mb-4 text-xs text-muted-foreground">Kelola akun & preferensi usahamu</p>
 
-          <nav aria-label="Bagian pengaturan" className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
+          <nav
+            aria-label="Bagian pengaturan"
+            className="scroll-x-soft flex gap-1.5 pb-1 lg:flex-col lg:overflow-visible lg:pb-0"
+          >
             {SECTIONS.map((s) => {
               const active = s.id === activeSection
               return (
@@ -1210,6 +1339,8 @@ export function SettingsView() {
         <CatalogSection />
         <NotificationsSection />
         <AiSection />
+        <WhatsAppConnectSection />
+        <InstagramConnectSection />
         <SecuritySection />
         <AppearanceSection />
         <DangerSection />

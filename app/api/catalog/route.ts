@@ -63,7 +63,19 @@ export async function PATCH(request: Request) {
     if (!body?.id || typeof body.id !== 'string') {
       return NextResponse.json({ error: 'id produk wajib.' }, { status: 400 })
     }
-    const { id, businessId: _b, ...patch } = body
+    const { id, businessId: _b, stockDelta, ...patch } = body
+
+    // stockDelta: +N restock tanpa hitung di client (lebih aman)
+    if (stockDelta != null && Number.isFinite(Number(stockDelta))) {
+      const delta = Math.round(Number(stockDelta))
+      const snap = await getSnapshot(bizId(request, body), user.id)
+      const current = snap.catalog.find((p) => p.id === id)
+      if (!current) {
+        return NextResponse.json({ error: 'Produk tidak ditemukan.' }, { status: 404 })
+      }
+      patch.stock = Math.max(0, current.stock + delta)
+    }
+
     const product = await updateCatalogProduct(user.id, id, patch, bizId(request, body))
     return NextResponse.json({ product })
   } catch (error) {

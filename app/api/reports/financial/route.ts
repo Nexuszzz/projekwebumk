@@ -9,7 +9,7 @@ import {
   sanitizeReportNarrative,
   type ReportPeriodKey,
 } from '@/lib/financial-report'
-import { getSessionUser, unauthorized } from '@/lib/server/auth'
+import { envTrim, getSessionUser, unauthorized } from '@/lib/server/auth'
 import { getSnapshot } from '@/lib/server/db'
 import { NextResponse } from 'next/server'
 
@@ -22,12 +22,12 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 async function generateNarrative(report: ReturnType<typeof buildFinancialReport>) {
-  const key = process.env.GEMINI_API_KEY
+  const key = envTrim('GEMINI_API_KEY')
   if (!key || !key.startsWith('AIza')) {
     return sanitizeReportNarrative(buildFallbackNarrative(report), report)
   }
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+  const model = envTrim('GEMINI_MODEL') || 'gemini-2.5-flash'
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`
 
   try {

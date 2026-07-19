@@ -1,16 +1,33 @@
 /**
  * User store FILE (email/password + Google).
  * Dipakai saat DATABASE_URL tidak di-set.
+ *
+ * Di Vercel: tulis ke /tmp (baca seed dari bundle) — lihat data-paths.ts.
  */
 
 import { promises as fs } from 'fs'
 import path from 'path'
 import bcrypt from 'bcryptjs'
 import type { AuthUser, UserRecord, UsersDatabase } from '@/lib/types'
+import {
+  ensureWritableDataDir,
+  isServerlessEphemeral,
+  seedDataDir,
+  writableDataDir,
+  writeJsonFile,
+} from '@/lib/server/data-paths'
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const USERS_PATH = path.join(DATA_DIR, 'users.json')
-const USERS_SEED_PATH = path.join(DATA_DIR, 'users-seed.json')
+const USERS_FILENAME = 'users.json'
+const USERS_SEED_FILENAME = 'users-seed.json'
+
+function usersPath() {
+  return path.join(writableDataDir(), USERS_FILENAME)
+}
+
+function usersSeedPath() {
+  // Seed selalu dari bundle deployment (read-only di Vercel)
+  return path.join(seedDataDir(), USERS_SEED_FILENAME)
+}
 
 let writeChain: Promise<unknown> = Promise.resolve()
 
@@ -33,28 +50,51 @@ async function pathExists(p: string) {
 }
 
 async function ensureUsersFile() {
-  await fs.mkdir(DATA_DIR, { recursive: true })
-  if (await pathExists(USERS_PATH)) return
-  if (await pathExists(USERS_SEED_PATH)) {
-    await fs.copyFile(USERS_SEED_PATH, USERS_PATH)
+  await ensureWritableDataDir()
+  const dest = usersPath()
+  if (await pathExists(dest)) return
+
+  const seed = usersSeedPath()
+  if (await pathExists(seed)) {
+    await fs.copyFile(seed, dest)
     return
   }
   const empty: UsersDatabase = { version: 1, updatedAt: new Date().toISOString(), users: [] }
-  await fs.writeFile(USERS_PATH, JSON.stringify(empty, null, 2), 'utf8')
+  await fs.writeFile(dest, JSON.stringify(empty, null, 2), 'utf8')
 }
 
 async function readUsers(): Promise<UsersDatabase> {
   await ensureUsersFile()
-  const raw = await fs.readFile(USERS_PATH, 'utf8')
+  const raw = await fs.readFile(usersPath(), 'utf8')
   return JSON.parse(raw) as UsersDatabase
 }
 
 async function writeUsers(db: UsersDatabase) {
   db.updatedAt = new Date().toISOString()
   db.version = (db.version || 0) + 1
-  const tmp = `${USERS_PATH}.${process.pid}.tmp`
-  await fs.writeFile(tmp, JSON.stringify(db, null, 2), 'utf8')
-  await fs.rename(tmp, USERS_PATH)
+  await ensureWritableDataDir()
+  await writeJsonFile(usersPath(), db)
+}
+
+/** Tulis user; jangan gagalkan flow auth hanya karena disk Windows terkunci. */
+async function writeUsersSafe(db: UsersDatabase) {
+  try {
+    await writeUsers(db)
+  } catch (error) {
+    const code =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: string }).code)
+        : ''
+    console.error('[users-file] writeUsers failed', {
+      ephemeral: isServerlessEphemeral(),
+      dir: writableDataDir(),
+      code,
+      error: error instanceof Error ? error.message : error,
+    })
+    // Vercel / Windows EPERM: biarkan request lanjut (session JWT tetap bisa)
+    if (isServerlessEphemeral() || code === 'EPERM' || code === 'EBUSY') return
+    throw error
+  }
 }
 
 export function toAuthUser(user: UserRecord): AuthUser {
@@ -77,8 +117,12 @@ export async function findUserByEmail(email: string): Promise<UserRecord | null>
 }
 
 export async function findUserById(id: string): Promise<UserRecord | null> {
-  const db = await readUsers()
-  return db.users.find((u) => u.id === id) ?? null
+  try {
+    const db = await readUsers()
+    return db.users.find((u) => u.id === id) ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function findUserByGoogleId(googleId: string): Promise<UserRecord | null> {
@@ -116,7 +160,7 @@ export async function registerWithPassword(input: {
       sessionVersion: 0,
     }
     db.users.push(user)
-    await writeUsers(db)
+    await writeUsersSafe(db)
     return { user: toAuthUser(user), sessionVersion: 0 }
   })
 }
@@ -151,7 +195,6 @@ export async function changePassword(
     if (!ok) throw new Error('Kata sandi saat ini salah.')
     user.passwordHash = await bcrypt.hash(nextPassword, 10)
     user.passwordChangedAt = new Date().toISOString()
-    // Invalidate all existing sessions
     user.sessionVersion = sessionVersionOf(user) + 1
     user.sessions = []
     await writeUsers(db)
@@ -193,11 +236,10 @@ export async function touchUserSession(
       ...s,
       current: s.id === session.id,
     }))
-    await writeUsers(db)
+    await writeUsersSafe(db)
   })
 }
 
-/** Invalidate ALL sessions (including current) — caller should re-issue cookie. */
 export async function revokeAllSessions(userId: string): Promise<{ sessionVersion: number }> {
   return withLock(async () => {
     const db = await readUsers()
@@ -210,12 +252,14 @@ export async function revokeAllSessions(userId: string): Promise<{ sessionVersio
   })
 }
 
-/** Logout other devices: bump version; caller re-issues token for current browser. */
-export async function revokeOtherSessions(userId: string, keepSessionMeta?: {
-  id: string
-  device: string
-  location: string
-}): Promise<{ sessionVersion: number }> {
+export async function revokeOtherSessions(
+  userId: string,
+  keepSessionMeta?: {
+    id: string
+    device: string
+    location: string
+  },
+): Promise<{ sessionVersion: number }> {
   return withLock(async () => {
     const db = await readUsers()
     const user = db.users.find((u) => u.id === userId)
@@ -259,7 +303,7 @@ export async function upsertGoogleUser(input: {
       user.name = input.name || user.name
       user.picture = input.picture ?? user.picture
       if (typeof user.sessionVersion !== 'number') user.sessionVersion = 0
-      await writeUsers(db)
+      await writeUsersSafe(db)
       return { user: toAuthUser(user), sessionVersion: sessionVersionOf(user) }
     }
 
@@ -274,7 +318,7 @@ export async function upsertGoogleUser(input: {
       sessionVersion: 0,
     }
     db.users.push(user)
-    await writeUsers(db)
+    await writeUsersSafe(db)
     return { user: toAuthUser(user), sessionVersion: 0 }
   })
 }

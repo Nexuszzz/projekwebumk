@@ -312,13 +312,13 @@ export function RevenuePanel() {
   }
 
   return (
-    <Reveal className="flex flex-col gap-5 rounded-2xl border border-border bg-background/50 p-5 sm:p-6">
+    <Reveal className="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-background/50 p-4 sm:gap-5 sm:p-5 md:p-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-bold tracking-tight">
+      <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+        <h2 className="min-w-0 font-display text-base font-bold tracking-tight sm:text-lg">
           Ringkasan Omzet &amp; Estimasi
         </h2>
-        <div className="relative z-30 flex items-center gap-2">
+        <div className="relative z-30 flex flex-wrap items-center gap-2">
           <MiniDropdown
             value={metric}
             options={METRIC_OPTIONS}
@@ -439,8 +439,8 @@ export function RevenuePanel() {
           )}
 
           {/* pt-8: ruang untuk tooltip / badge highlight agar tidak tabrakan label */}
-          <div className="overflow-x-auto pb-1 pt-8 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:overflow-visible sm:[mask-image:none]">
-            <div className="flex min-w-[640px] gap-3 sm:min-w-0">
+          <div className="scroll-x-soft pb-1 pt-8 [mask-image:linear-gradient(to_right,black_calc(100%-24px),transparent)] sm:overflow-visible sm:[mask-image:none]">
+            <div className="flex min-w-[560px] gap-3 sm:min-w-0 md:min-w-0">
               {/* Y axis — dinamis mengikuti puncak data */}
               <div
                 className="flex h-40 w-10 shrink-0 flex-col justify-between py-0.5 text-right font-mono text-[10px] leading-none text-muted-foreground sm:h-52 sm:w-11"

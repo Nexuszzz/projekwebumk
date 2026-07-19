@@ -197,33 +197,35 @@ export function AiAssistant({ onNavigate }: { onNavigate: (tab: DashboardTab) =>
   }
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-accent/20 bg-secondary/40 p-5">
+    <section className="flex min-w-0 flex-col gap-3 rounded-2xl border border-accent/20 bg-secondary/40 p-3.5 sm:gap-4 sm:p-5">
       <div className="text-center">
         <p className="text-sm text-muted-foreground">
           Hai, {profile?.owner ?? 'Pemilik'} 👋
           {catalog.length > 0 && (
-            <span className="mt-0.5 block text-[11px] text-muted-foreground/80">
+            <span className="mt-0.5 block text-[11px] text-muted-foreground/80 text-break-safe">
               {profile?.brand ? `${profile.brand} · ` : ''}
               {catalog.length} produk · stok total{' '}
               {catalog.reduce((s, p) => s + p.stock, 0)} unit
             </span>
           )}
         </p>
-        <h2 className="mt-1 font-display text-xl font-bold tracking-tight text-balance">
+        <h2 className="mt-1 font-display text-lg font-bold tracking-tight text-balance sm:text-xl">
           Ada yang bisa dibantu?
         </h2>
       </div>
 
       {/* Periode laporan PDF */}
       <div className="flex flex-wrap items-center justify-center gap-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground">Periode laporan:</span>
+        <span className="w-full text-center text-[11px] font-medium text-muted-foreground sm:w-auto">
+          Periode laporan:
+        </span>
         {PERIODS.map((p) => (
           <button
             key={p.key}
             type="button"
             onClick={() => setReportPeriod(p.key)}
             aria-pressed={reportPeriod === p.key}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            className={`min-h-8 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
               reportPeriod === p.key
                 ? 'bg-accent text-accent-foreground'
                 : 'border border-border text-muted-foreground hover:text-foreground'
@@ -234,14 +236,14 @@ export function AiAssistant({ onNavigate }: { onNavigate: (tab: DashboardTab) =>
         ))}
       </div>
 
-      <Stagger className="grid grid-cols-2 gap-2.5" staggerChildren={0.08}>
+      <Stagger className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:gap-2.5" staggerChildren={0.08}>
         {ACTIONS.map((action) => (
           <StaggerItem key={action.label}>
             <button
               type="button"
               disabled={loading && action.action === 'report-pdf'}
               onClick={() => handleAction(action.action)}
-              className="flex h-full w-full flex-col gap-2.5 rounded-xl border border-border bg-background/60 p-3.5 text-left transition-colors hover:border-accent/40 hover:bg-background disabled:opacity-60"
+              className="flex h-full w-full min-h-11 flex-col gap-2 rounded-xl border border-border bg-background/60 p-3 text-left transition-colors hover:border-accent/40 hover:bg-background disabled:opacity-60 sm:gap-2.5 sm:p-3.5"
             >
               <span
                 className="flex size-8 items-center justify-center rounded-lg bg-accent/15 text-accent"

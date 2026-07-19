@@ -2,6 +2,7 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
+import { WhatsAppSupportWidget } from '@/components/whatsapp-support-widget'
 import './globals.css'
 
 const inter = Inter({
@@ -27,7 +28,14 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0A0D09',
+  themeColor: [
+    { media: '(prefers-color-scheme: dark)', color: '#0A0D09' },
+    { media: '(prefers-color-scheme: light)', color: '#F7F9F1' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -48,8 +56,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased font-sans">
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className="min-h-dvh overflow-x-clip antialiased font-sans">
+        <ThemeProvider>
+          {children}
+          {/* Bubble support WA — pojok kanan bawah (landing + dashboard) */}
+          <WhatsAppSupportWidget />
+        </ThemeProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

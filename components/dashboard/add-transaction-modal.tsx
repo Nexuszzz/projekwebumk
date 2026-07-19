@@ -17,7 +17,8 @@ const PROCESSING_TEXTS = [
 ]
 
 export function AddTransactionModal() {
-  const { transactionModalOpen, closeTransactionModal, addTransaction, catalog, profile } = useDashboard()
+  const { transactionModalOpen, closeTransactionModal, addTransaction, catalog, profile, businessId } =
+    useDashboard()
   const fallback = defaultCatalogProduct(catalog)
   const brandHint = profile?.brand || 'produk'
 
@@ -27,6 +28,7 @@ export function AddTransactionModal() {
   const [saving, setSaving] = useState(false)
 
   const [product, setProduct] = useState('')
+  const [productId, setProductId] = useState<string | undefined>(undefined)
   const [qty, setQty] = useState(1)
   const [price, setPrice] = useState(0)
   const total = qty * price
@@ -38,31 +40,57 @@ export function AddTransactionModal() {
     setError(null)
     setSaving(false)
     setProduct(fallback?.name ?? '')
+    setProductId(fallback?.id)
     setPrice(fallback?.unitPrice ?? 0)
     setQty(1)
-  }, [transactionModalOpen, fallback?.name, fallback?.unitPrice])
+  }, [transactionModalOpen, fallback?.name, fallback?.unitPrice, fallback?.id])
 
   useEffect(() => {
     if (step !== 'processing') return
     const controller = new AbortController()
     async function parseTransaction() {
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+        if (businessId) headers['x-business-id'] = businessId
         const response = await fetch('/api/ai', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ task: 'transaction', text }),
           signal: controller.signal,
         })
-        const payload = await response.json()
+        const rawText = await response.text()
+        let payload: {
+          error?: string
+          product?: string
+          qty?: number
+          price?: number
+        } = {}
+        if (rawText) {
+          try {
+            payload = JSON.parse(rawText)
+          } catch {
+            throw new Error('Respons AI tidak valid. Coba lagi.')
+          }
+        }
         if (!response.ok) throw new Error(payload.error || 'AI gagal membaca transaksi.')
+
         const parsedProduct = String(payload.product || '').trim()
-        const catalogHit = findCatalogProduct(catalog, parsedProduct)
-        setProduct(catalogHit?.name ?? fallback?.name ?? parsedProduct)
-        setQty(Math.max(1, Math.round(payload.qty)))
+        const catalogHit = parsedProduct
+          ? findCatalogProduct(catalog, parsedProduct)
+          : undefined
+        const name = catalogHit?.name ?? parsedProduct ?? fallback?.name ?? brandHint
+        setProduct(name)
+        setProductId(catalogHit?.id ?? fallback?.id)
+        setQty(Math.max(1, Math.round(Number(payload.qty) || 1)))
         setPrice(
           Math.max(
             0,
-            Math.round(payload.price || catalogHit?.unitPrice || fallback?.unitPrice || 0),
+            Math.round(
+              Number(payload.price) ||
+                catalogHit?.unitPrice ||
+                fallback?.unitPrice ||
+                0,
+            ),
           ),
         )
         setStep('result')
@@ -74,16 +102,23 @@ export function AddTransactionModal() {
     }
     void parseTransaction()
     return () => controller.abort()
-  }, [step, text, catalog, fallback?.name, fallback?.unitPrice])
+  }, [step, text, catalog, fallback?.name, fallback?.unitPrice, fallback?.id, businessId, brandHint])
 
   async function save() {
     setSaving(true)
     setError(null)
     try {
-      const catalogHit = findCatalogProduct(catalog, product) ?? fallback
+      const name = product.trim()
+      if (!name) {
+        throw new Error('Isi nama produk dulu (pilih dari daftar atau ketik manual).')
+      }
+      const catalogHit = findCatalogProduct(catalog, name) ?? (productId
+        ? catalog.find((p) => p.id === productId)
+        : undefined)
+
       await addTransaction({
         productId: catalogHit?.id,
-        product: catalogHit?.name ?? product,
+        product: catalogHit?.name ?? name,
         qty,
         unitPrice: price,
         status: 'Tersimpan',
@@ -97,6 +132,7 @@ export function AddTransactionModal() {
   }
 
   const canProcess = text.trim().length > 0
+  const canSave = product.trim().length > 0 && qty >= 1
 
   return (
     <Modal
@@ -112,7 +148,9 @@ export function AddTransactionModal() {
       subtitle={
         step === 'input'
           ? 'Ketik detail penjualan — stok gudang akan berkurang otomatis'
-          : undefined
+          : step === 'result' && catalog.length === 0
+            ? 'Produk belum di katalog? Tenang — akan dibuat otomatis saat simpan.'
+            : undefined
       }
       maxWidth="sm:max-w-md"
     >
@@ -135,7 +173,7 @@ export function AddTransactionModal() {
               </p>
             )}
 
-            {catalog.length > 0 && (
+            {catalog.length > 0 ? (
               <ul className="rounded-xl border border-border bg-secondary/40 px-3.5 py-3 text-xs text-muted-foreground">
                 {catalog.map((p) => (
                   <li key={p.id} className="flex justify-between gap-2 py-0.5">
@@ -146,6 +184,11 @@ export function AddTransactionModal() {
                   </li>
                 ))}
               </ul>
+            ) : (
+              <p className="rounded-xl border border-border bg-secondary/40 px-3.5 py-3 text-xs text-muted-foreground">
+                Katalog masih kosong. Kamu tetap bisa catat transaksi — produk akan dibuat
+                otomatis dari deteksi AI.
+              </p>
             )}
 
             <div className="flex flex-col gap-1.5">
@@ -157,7 +200,7 @@ export function AddTransactionModal() {
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 rows={5}
-                placeholder={`Contoh: jual ${brandHint} 3 pcs`}
+                placeholder={`Contoh: jual ${brandHint} 3 pcs @6000`}
                 className="w-full resize-y rounded-2xl border border-input bg-background/60 p-4 text-sm leading-relaxed outline-none transition-all placeholder:text-muted-foreground/60 focus:border-accent focus:ring-2 focus:ring-accent/25"
               />
             </div>
@@ -200,23 +243,49 @@ export function AddTransactionModal() {
               <label htmlFor="tx-product" className="text-xs font-semibold">
                 Nama Produk
               </label>
-              <select
+              {catalog.length > 0 && (
+                <select
+                  id="tx-product-select"
+                  value={
+                    catalog.some((p) => p.name === product) ? product : ''
+                  }
+                  onChange={(e) => {
+                    const name = e.target.value
+                    if (!name) return
+                    setProduct(name)
+                    const hit = findCatalogProduct(catalog, name)
+                    setProductId(hit?.id)
+                    if (hit) setPrice(hit.unitPrice)
+                  }}
+                  className="h-10 w-full rounded-xl border border-input bg-background/60 px-3.5 text-sm outline-none transition-all focus:border-accent focus:ring-2 focus:ring-accent/25"
+                >
+                  <option value="">— Pilih dari katalog —</option>
+                  {catalog.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.shortName} — stok {p.stock}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <input
                 id="tx-product"
+                type="text"
                 value={product}
                 onChange={(e) => {
                   const name = e.target.value
                   setProduct(name)
                   const hit = findCatalogProduct(catalog, name)
+                  setProductId(hit?.id)
                   if (hit) setPrice(hit.unitPrice)
                 }}
+                placeholder={`Nama produk${brandHint !== 'produk' ? ` (${brandHint})` : ''}`}
                 className="h-10 w-full rounded-xl border border-input bg-background/60 px-3.5 text-sm outline-none transition-all focus:border-accent focus:ring-2 focus:ring-accent/25"
-              >
-                {catalog.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {p.shortName} — stok {p.stock}
-                  </option>
-                ))}
-              </select>
+              />
+              <p className="text-[11px] text-muted-foreground">
+                {catalog.length > 0
+                  ? 'Bisa pilih dari katalog atau ketik nama baru (otomatis masuk katalog).'
+                  : 'Ketik nama produk — akan ditambahkan ke katalog saat simpan.'}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -258,7 +327,7 @@ export function AddTransactionModal() {
 
             <button
               type="button"
-              disabled={saving}
+              disabled={saving || !canSave}
               onClick={() => void save()}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-accent text-sm font-bold text-accent-foreground transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
             >

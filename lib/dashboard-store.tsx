@@ -52,6 +52,13 @@ type DashboardStore = {
     sku?: string
     image?: string
   }) => Promise<CatalogProduct>
+  /** Update field produk (harga, stok absolut, dll.) */
+  updateProduct: (
+    id: string,
+    patch: Partial<Omit<CatalogProduct, 'id'>>,
+  ) => Promise<CatalogProduct>
+  /** Tambah stok (delta positif), mis. restock barang masuk */
+  addStock: (id: string, amount: number) => Promise<CatalogProduct>
   addContents: (items: Omit<ContentItem, 'id' | 'createdAt'>[]) => Promise<void>
   updateContent: (id: string, patch: Partial<Omit<ContentItem, 'id'>>) => Promise<void>
   addTransaction: (input: {
@@ -219,7 +226,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/catalog', {
         method: 'POST',
         headers: bizHeaders(businessId),
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, businessId }),
       })
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.error || 'Gagal menambah produk.')
@@ -241,16 +248,98 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     [businessId],
   )
 
+  const updateProduct = useCallback(
+    async (id: string, patch: Partial<Omit<CatalogProduct, 'id'>>) => {
+      const response = await fetch('/api/catalog', {
+        method: 'PATCH',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ id, businessId, ...patch }),
+      })
+      const text = await response.text()
+      let payload: { error?: string; product?: CatalogProduct } = {}
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          throw new Error(`Gagal update produk (HTTP ${response.status}).`)
+        }
+      }
+      if (!response.ok) throw new Error(payload.error || 'Gagal memperbarui produk.')
+      const product = payload.product
+      if (!product) throw new Error('Respons update produk kosong.')
+      setCatalog((prev) => {
+        const next = prev.map((p) => (p.id === product.id ? product : p))
+        setBusinesses((bs) =>
+          bs.map((b) =>
+            b.id === businessId
+              ? { ...b, stockTotal: next.reduce((s, p) => s + p.stock, 0) }
+              : b,
+          ),
+        )
+        return next
+      })
+      return product
+    },
+    [businessId],
+  )
+
+  const addStock = useCallback(
+    async (id: string, amount: number) => {
+      const qty = Math.max(0, Math.round(Number(amount) || 0))
+      if (qty < 1) throw new Error('Jumlah stok masuk minimal 1.')
+      const response = await fetch('/api/catalog', {
+        method: 'PATCH',
+        headers: bizHeaders(businessId),
+        body: JSON.stringify({ id, businessId, stockDelta: qty }),
+      })
+      const text = await response.text()
+      let payload: { error?: string; product?: CatalogProduct } = {}
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          throw new Error(`Gagal menambah stok (HTTP ${response.status}).`)
+        }
+      }
+      if (!response.ok) throw new Error(payload.error || 'Gagal menambah stok.')
+      const product = payload.product
+      if (!product) throw new Error('Respons stok kosong.')
+      setCatalog((prev) => {
+        const next = prev.map((p) => (p.id === product.id ? product : p))
+        setBusinesses((bs) =>
+          bs.map((b) =>
+            b.id === businessId
+              ? { ...b, stockTotal: next.reduce((s, p) => s + p.stock, 0) }
+              : b,
+          ),
+        )
+        return next
+      })
+      return product
+    },
+    [businessId],
+  )
+
   const addContents = useCallback(
     async (items: Omit<ContentItem, 'id' | 'createdAt'>[]) => {
       const response = await fetch('/api/contents', {
         method: 'POST',
         headers: bizHeaders(businessId),
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, businessId }),
       })
-      const payload = await response.json()
-      if (!response.ok) throw new Error(payload.error || 'Gagal menyimpan konten.')
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(
+          payload.error ||
+            (response.status === 413
+              ? 'Gambar terlalu besar untuk disimpan. Coba tanpa foto / generate ulang poster.'
+              : 'Gagal menyimpan konten.'),
+        )
+      }
       const created = payload.contents as ContentItem[]
+      if (payload.businessId && payload.businessId !== businessId) {
+        setBusinessId(payload.businessId)
+      }
       setContents((prev) => [...created, ...prev])
     },
     [businessId],
@@ -258,14 +347,45 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const updateContent = useCallback(
     async (id: string, patch: Partial<Omit<ContentItem, 'id'>>) => {
+      // Jangan kirim data:/blob: raksasa ke API
+      const safePatch = { ...patch }
+      if (
+        typeof safePatch.image === 'string' &&
+        (safePatch.image.startsWith('data:image/') || safePatch.image.startsWith('blob:')) &&
+        safePatch.image.length > 200_000
+      ) {
+        // biarkan server/path yang sudah di-upload; kalau masih blob, strip
+        if (safePatch.image.startsWith('blob:')) {
+          delete safePatch.image
+        } else {
+          safePatch.image = '/placeholder.svg'
+        }
+      }
       const response = await fetch('/api/contents', {
         method: 'PATCH',
         headers: bizHeaders(businessId),
-        body: JSON.stringify({ id, ...patch }),
+        body: JSON.stringify({ id, businessId, ...safePatch }),
       })
-      const payload = await response.json()
+      const text = await response.text()
+      let payload: { error?: string; content?: ContentItem; businessId?: string } = {}
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          throw new Error(
+            response.status === 413
+              ? 'Gambar terlalu besar saat menyimpan.'
+              : `Gagal memperbarui konten (HTTP ${response.status}).`,
+          )
+        }
+      } else if (!response.ok) {
+        throw new Error(`Gagal memperbarui konten (HTTP ${response.status}).`)
+      }
       if (!response.ok) throw new Error(payload.error || 'Gagal memperbarui konten.')
       const content = payload.content as ContentItem
+      if (payload.businessId && payload.businessId !== businessId) {
+        setBusinessId(payload.businessId)
+      }
       setContents((prev) => prev.map((item) => (item.id === id ? content : item)))
     },
     [businessId],
@@ -282,12 +402,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: bizHeaders(businessId),
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, businessId }),
       })
-      const payload = await response.json()
+      const text = await response.text()
+      let payload: {
+        error?: string
+        transaction?: TransactionItem
+        catalog?: CatalogProduct[]
+        businessId?: string
+      } = {}
+      if (text) {
+        try {
+          payload = JSON.parse(text)
+        } catch {
+          throw new Error(`Gagal menyimpan transaksi (HTTP ${response.status}).`)
+        }
+      }
       if (!response.ok) throw new Error(payload.error || 'Gagal menyimpan transaksi.')
-      const transaction = payload.transaction as TransactionItem
-      const nextCatalog = payload.catalog as CatalogProduct[]
+      const transaction = payload.transaction
+      if (!transaction) throw new Error('Transaksi tersimpan tapi respons kosong.')
+      const nextCatalog = payload.catalog || []
       setTransactions((prev) => [transaction, ...prev])
       setCatalog(nextCatalog)
       setBusinesses((prev) =>
@@ -391,6 +525,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       switchBusiness,
       createBusiness,
       addProduct,
+      updateProduct,
+      addStock,
       addContents,
       updateContent,
       addTransaction,
@@ -420,6 +556,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       switchBusiness,
       createBusiness,
       addProduct,
+      updateProduct,
+      addStock,
       addContents,
       updateContent,
       addTransaction,

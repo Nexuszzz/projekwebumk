@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { Building2, LogOut, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 
-/** Ditampilkan jika user login tapi belum punya usaha — tidak menampilkan data NUSACID. */
+/** Ditampilkan jika user login tapi belum punya usaha — isolasi multi-tenant. */
 export function OnboardingPanel() {
   const { user, createBusiness, logout } = useDashboard()
   const [saving, setSaving] = useState(false)
@@ -40,21 +40,23 @@ export function OnboardingPanel() {
     <motion.section
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mx-auto flex w-full max-w-lg flex-col gap-5 rounded-3xl border border-border bg-background/60 p-6 sm:p-8"
+      className="mx-auto flex w-full max-w-lg flex-col gap-5 rounded-2xl border border-border bg-background/60 p-4 sm:rounded-3xl sm:p-6 md:p-8"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">Hai, {user?.name ?? 'Pengguna'} 👋</p>
-          <h2 className="mt-1 font-display text-2xl font-bold tracking-tight">Buat usaha pertamamu</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-            Akun ini masih kosong. Data NUSACID atau usaha client lain <strong>tidak ditampilkan</strong>{' '}
-            di sini — kamu mulai dari nol.
+          <h2 className="mt-1 font-display text-xl font-bold tracking-tight sm:text-2xl">
+            Buat usaha pertamamu
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
+            Akun ini masih kosong. Setiap client hanya melihat usahanya sendiri — data usaha
+            lain <strong>tidak tercampur</strong>. Kamu mulai dari nol.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void logout()}
-          className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
           <LogOut className="size-3.5" />
           Keluar
@@ -73,7 +75,7 @@ export function OnboardingPanel() {
             required
             value={form.brand}
             onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))}
-            placeholder="Contoh: Kopi Pagi Sidoarjo"
+            placeholder="Nama brand / toko kamu"
             className="h-11 rounded-xl border border-input bg-card px-3.5 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </label>
@@ -100,7 +102,7 @@ export function OnboardingPanel() {
           <input
             value={form.category}
             onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-            placeholder="Kopi, fashion, kebersihan, dll."
+            placeholder="Mis. F&B, fashion, jasa, retail…"
             className="h-11 rounded-xl border border-input bg-card px-3.5 text-sm text-foreground outline-none focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </label>

@@ -22,17 +22,17 @@ function DashboardShell() {
   const { loading, error, ready, refresh, needsOnboarding } = useDashboard()
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-3 py-4 sm:px-6 sm:py-8 lg:px-10">
+    <main className="relative min-h-dvh overflow-x-clip py-3 safe-px safe-pb sm:py-6 md:px-6 lg:px-10 lg:py-8">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="absolute -top-40 left-1/4 h-96 w-96 rounded-full bg-accent/10 blur-[120px]" />
-        <div className="absolute bottom-0 right-1/5 h-80 w-80 rounded-full bg-accent-warm/8 blur-[120px]" />
+        <div className="absolute -top-40 left-1/4 h-72 w-72 rounded-full bg-accent/10 blur-[100px] sm:h-96 sm:w-96 sm:blur-[120px]" />
+        <div className="absolute bottom-0 right-1/5 h-64 w-64 rounded-full bg-accent-warm/8 blur-[100px] sm:h-80 sm:w-80 sm:blur-[120px]" />
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 24, scale: 0.985 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="relative mx-auto flex w-full max-w-[1360px] flex-col gap-5 rounded-3xl border border-border bg-card p-4 shadow-2xl sm:gap-6 sm:rounded-[2rem] sm:p-6 lg:p-8"
+        className="relative mx-auto flex w-full min-w-0 max-w-[1360px] flex-col gap-4 rounded-2xl border border-border bg-card p-3 shadow-2xl sm:gap-6 sm:rounded-3xl sm:p-5 md:rounded-[2rem] md:p-6 lg:gap-6 lg:p-8"
       >
         <DashboardNavbar activeTab={activeTab} onTabChange={setActiveTab} />
 
@@ -106,14 +106,14 @@ function DashboardShell() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6"
+                className="grid grid-cols-1 gap-4 min-w-0 sm:gap-5 lg:grid-cols-3 lg:gap-6"
               >
-                <div className="flex flex-col gap-5 lg:col-span-2 lg:gap-6">
+                <div className="flex min-w-0 flex-col gap-4 sm:gap-5 lg:col-span-2 lg:gap-6">
                   <StatCards />
                   <RevenuePanel />
                   <ActivityTable />
                 </div>
-                <div className="flex flex-col gap-5 lg:gap-6">
+                <div className="flex min-w-0 flex-col gap-4 sm:gap-5 lg:gap-6">
                   <PriorityTasks onNavigate={setActiveTab} />
                   <AiAssistant onNavigate={setActiveTab} />
                 </div>

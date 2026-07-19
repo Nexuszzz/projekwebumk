@@ -95,4 +95,13 @@ export async function upsertGoogleUser(
   return m.upsertGoogleUser(...args)
 }
 
+/** Hanya meaningful di Postgres — no-op di file store. */
+export async function ensureUserFromAuth(
+  user: import('@/lib/types').AuthUser,
+): Promise<import('@/lib/types').AuthUser> {
+  if (!usePostgres()) return user
+  const m = await import('@/lib/server/users-pg')
+  return m.ensureUserFromAuth(user)
+}
+
 export { toAuthUser, sessionVersionOf } from '@/lib/server/users-file'

@@ -80,7 +80,7 @@ export function Hero() {
 
         <motion.h1
           variants={item}
-          className="mt-8 font-display text-4xl font-bold leading-[1.08] tracking-tight text-balance sm:text-5xl md:text-6xl"
+          className="mt-6 font-display text-[1.85rem] font-bold leading-[1.1] tracking-tight text-balance min-[400px]:text-4xl sm:mt-8 sm:text-5xl md:text-6xl"
         >
           <span className="bg-gradient-to-b from-foreground to-foreground/70 bg-clip-text text-transparent">
             {'UMKM Naik Kelas,'}
@@ -101,14 +101,14 @@ export function Hero() {
 
         <motion.div
           variants={item}
-          className="mt-10 flex flex-col items-center gap-4 sm:flex-row"
+          className="mt-8 flex w-full max-w-sm flex-col items-stretch gap-3 sm:mt-10 sm:max-w-none sm:flex-row sm:items-center sm:justify-center sm:gap-4"
         >
           <motion.a
             href="/login"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-            className="group inline-flex items-center gap-2 rounded-full bg-accent px-7 py-3.5 text-sm font-semibold text-accent-foreground shadow-[0_0_32px_-6px_var(--accent)] transition-shadow hover:shadow-[0_0_48px_-4px_var(--accent)]"
+            className="group inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-accent px-7 py-3.5 text-sm font-semibold text-accent-foreground shadow-[0_0_32px_-6px_var(--accent)] transition-shadow hover:shadow-[0_0_48px_-4px_var(--accent)] sm:w-auto"
           >
             Coba Gratis
             <ArrowRight
@@ -121,7 +121,7 @@ export function Hero() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-            className="inline-flex items-center rounded-full border border-foreground/20 px-7 py-3.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50 hover:bg-foreground/5"
+            className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-foreground/20 px-7 py-3.5 text-sm font-semibold text-foreground transition-colors hover:border-accent/50 hover:bg-foreground/5 sm:w-auto"
           >
             Lihat Cara Kerja
           </motion.a>

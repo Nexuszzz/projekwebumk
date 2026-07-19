@@ -333,7 +333,7 @@ export function getReportSystemInstruction(report: FinancialReport): string {
 
 ## Aturan anti-kebocoran (WAJIB)
 1. Hanya tulis tentang usaha "${report.business.brand}" dan produk di daftar data laporan.
-2. JANGAN menyebut merek, SKU, atau contoh usaha lain (termasuk NUSACID, pembersih kerak, atau brand seed demo) kecuali nama itu PERSIS muncul di data laporan di bawah.
+2. JANGAN menyebut merek, SKU, atau usaha lain di luar data laporan di bawah.
 3. JANGAN mengisi laporan kosong dengan contoh fiktif produk/merek.
 4. Jika omzet 0 / katalog kosong: bilang data belum ada untuk usaha ini, jangan ganti ke usaha lain.
 5. Angka harus sama persis dengan data yang diberikan.
@@ -378,7 +378,7 @@ ${stockOnly.map((p) => `- ${p.product}: stok ${p.stock}, modal stok ${formatRp(p
 3) Rekomendasi aksi (3 bullet konkret untuk ${report.business.owner || 'pemilik'})
 
 ## Larangan
-- Jangan sebut NUSACID / merek lain yang tidak ada di data di atas.
+- Jangan sebut merek lain yang tidak ada di data di atas.
 - Jangan mengarang produk, diskon, atau angka baru.
 - Jangan memakai contoh generik dari usaha demo.`
 }

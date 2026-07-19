@@ -69,8 +69,8 @@ export function PriorityTasks({ onNavigate }: { onNavigate: (tab: DashboardTab) 
   }, [contents, transactions, catalog, profile])
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-background/50 p-5">
-      <div className="flex items-center justify-between">
+    <section className="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-background/50 p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="font-display text-lg font-bold tracking-tight">Tugas Prioritas</h2>
         <button type="button" onClick={() => onNavigate('Riwayat')} className="text-xs font-medium text-accent hover:underline">
           Lihat semua

@@ -158,6 +158,54 @@
   animation: sparkle-sway 2.8s ease-in-out infinite;
 }
 
+/* ===== Responsive base ===== */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 0;
+  overflow-x: clip;
+}
+
+/* Safe area untuk notch / home indicator (iOS) */
+@utility safe-px {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+
+@utility safe-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Tap target nyaman di mobile */
+@utility touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Scroll horizontal tanpa scrollbar mengganggu (tabel / chip) */
+@utility scroll-x-soft {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+/* Cegah teks / angka meluber di kartu sempit */
+@utility text-break-safe {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Kartu dashboard: jangan biarkan child melebarkan layout */
+@utility panel-clip {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* Diagonal sheen that sweeps across product photos on hover */
 @utility sheen-sweep {
   position: relative;

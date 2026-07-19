@@ -1,5 +1,6 @@
 import { getSessionUser, unauthorized } from '@/lib/server/auth'
 import { getSnapshotForUser, updateProfile } from '@/lib/server/db'
+import { sanitizeProfileForClient } from '@/lib/server/instagram'
 import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
@@ -24,8 +25,12 @@ export async function GET(request: Request) {
         user,
       })
     }
-    return NextResponse.json({
+    const business = {
       ...snapshot.business,
+      profile: sanitizeProfileForClient(snapshot.business.profile),
+    }
+    return NextResponse.json({
+      ...business,
       businesses: snapshot.businesses,
       needsOnboarding: false,
       user,
@@ -46,9 +51,17 @@ export async function PATCH(request: Request) {
     if (!body?.profile || typeof body.profile !== 'object') {
       return NextResponse.json({ error: 'Body.profile wajib diisi.' }, { status: 400 })
     }
+    // Jangan izinkan client overwrite secrets via PATCH generik dengan placeholder
+    const patch = { ...body.profile }
+    if (patch.instagram?.accessToken === '••••••••') {
+      delete patch.instagram.accessToken
+    }
+    if (patch.instagram?.privateSessionId === '••••••••') {
+      delete patch.instagram.privateSessionId
+    }
     const id = body.businessId || businessIdFrom(request)
-    const profile = await updateProfile(user.id, body.profile, id)
-    return NextResponse.json({ profile })
+    const profile = await updateProfile(user.id, patch, id)
+    return NextResponse.json({ profile: sanitizeProfileForClient(profile) })
   } catch (error) {
     console.error('PATCH /api/business', error)
     return NextResponse.json({ error: 'Gagal memperbarui profil.' }, { status: 500 })
