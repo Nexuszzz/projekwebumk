@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">UMKMan</string>
+    <string name="title_activity_main">UMKMan</string>
+    <string name="package_name">id.umkman.app</string>
+    <string name="custom_url_scheme">id.umkman.app</string>
+</resources>

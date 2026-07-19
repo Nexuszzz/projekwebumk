@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono, Space_Grotesk } from 'next/font/google'
+import { CapacitorInit } from '@/components/capacitor-init'
 import { ThemeProvider } from '@/components/theme-provider'
 import { WhatsAppSupportWidget } from '@/components/whatsapp-support-widget'
 import './globals.css'
@@ -58,6 +59,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh overflow-x-clip antialiased font-sans">
         <ThemeProvider>
+          <CapacitorInit />
           {children}
           {/* Bubble support WA — pojok kanan bawah (landing + dashboard) */}
           <WhatsAppSupportWidget />

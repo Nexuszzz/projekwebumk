@@ -59,7 +59,24 @@ poster_marketing.jpg
 # OS / misc
 Thumbs.db
 Desktop.ini
+~$*.docx
+*.tmp
 
 # Vendored GOWA clone (use Docker image; see docs/GOWA.md)
 vendor/
+
+# Capacitor / Android native build artifacts
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/captures/
+android/.idea/
+*.apk
+*.aab
+*.keystore
+*.jks
+ios/App/Pods/
+ios/App/build/
+.capacitor/
 
